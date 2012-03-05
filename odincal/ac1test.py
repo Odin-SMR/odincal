@@ -1,5 +1,5 @@
 from ctypes import Structure,c_ushort,c_float,c_uint,sizeof
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy
 class hblock(Structure):
     _fields_=[
@@ -63,15 +63,14 @@ class dblock(Structure):
         ('user',c_ushort),
         ('userdata',(c_ushort*64)),
         ('index',c_ushort),
-        ('nodummy',(c_ushort*6)),
+        ('dummy',(c_ushort*6)),
         ]
 
-def getcc():
-    f=open('/home/joakim/Downloads/149a04f1.ac1','rb')
+def getcc(f):
     a=hblock()
     b=dblock()
+    cc_block = numpy.ndarray((12,64),'>f2')
     while (f.readinto(a)!=0):
-        cc = numpy.ndarray((12,64),'>f2')
         print '{:X}'.format(a.user)
         if a.user==0x7380:
             stw = (a.stw_msb<<16)+a.stw_lsb
@@ -82,16 +81,18 @@ def getcc():
                     print 'acd'
                 elif not i[0].startswith('no'):
                     print '{0:>15} {1:4X} {1:8d}'.format(i[0],getattr(a,i[0]))
-            #for i in range(12):
-                #f.readinto(b)
-                #if (f.readinto(b)==0):
-                #    break
-                #cc[i] = numpy.ndarray((64,),'>f2',b)
-            #return cc
+            for j in range(12):
+                f.readinto(b)
+                cc_block[j]=numpy.ndarray((1,64),'>f2',b)
+            return cc_block.reshape(8,96)
+        pass
+    pass
 
 
-#print sizeof(hblock())
-#print sizeof(dblock())
-cc = getcc()
-#plt.plot(cc.transpose())
-#plt.show()
+f=open('/home/joakim/Downloads/149a04f1.ac1','rb')
+print sizeof(hblock),sizeof(dblock)
+
+cc = getcc(f)
+plt.plot(cc.transpose())
+plt.show()
+f.close()
