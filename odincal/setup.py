@@ -12,12 +12,13 @@ setup(
 
     packages = find_packages(exclude=['ez_setup']),
     include_package_data=True,
-    test_suite='odincal.tests',
+    test_suite='tests',
     zip_safe=True,
     author='Joakim Möller',
     author_email='joakim.moller@molflow.com',
     url='http://www.molflow.com/odincal',
     install_requires=[
+        'numpy>=1.6.0',
         'setuptools',
     ],
     #tests_require=['setuptools'],
