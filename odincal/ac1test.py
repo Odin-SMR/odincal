@@ -51,10 +51,15 @@ class hblock(Structure):
         #16
         ('r',c_ushort,8),
         ('s',c_ushort,8),
-        ('noconfig',(c_ushort*17)),
+        #('noconfig',(c_ushort*17)),
+        ('noconfig',(c_ushort*2)),
+        ('prescaler',c_ushort),
+        ('lags',(c_ushort*8)),
+        ('noconfig2',(c_ushort*6)),
         ('index',c_ushort),
         ('nodummy',(c_ushort*6)),
         ]
+
 class dblock(Structure):
     _fields_=[
         ('sync',c_ushort),
@@ -66,33 +71,40 @@ class dblock(Structure):
         ('dummy',(c_ushort*6)),
         ]
 
-def getcc(f):
-    a=hblock()
-    b=dblock()
-    cc_block = numpy.ndarray((12,64),'>f2')
-    while (f.readinto(a)!=0):
-        print '{:X}'.format(a.user)
-        if a.user==0x7380:
-            stw = (a.stw_msb<<16)+a.stw_lsb
-            adc = numpy.ndarray((16,),'>i2',a.acd)
-            print 'Data block at time {0:X}'.format(stw)
-            for i in a._fields_:
-                if i[0]=='acd':
-                    print 'acd'
-                elif not i[0].startswith('no'):
-                    print '{0:>15} {1:4X} {1:8d}'.format(i[0],getattr(a,i[0]))
-            for j in range(12):
-                f.readinto(b)
-                cc_block[j]=numpy.ndarray((1,64),'>f2',b)
-            return cc_block.reshape(8,96)
-        pass
-    pass
+class ac:
 
+    def __init__(self):
+        self.datatype = '>i2'
+        self.inputshape = (12,64)
+        self.outputshape = (8,96)
+        self.header = hblock()
+        self.data = numpy.ndarray(self.inputshape,self.datatype)
+
+    def readblocks(self,f):
+        a = hblock()
+        b = dblock()
+        while (f.readinto(a)!=0):
+            if a.user==0x7380:
+                for j in range(12):
+                    f.readinto(b)
+                    self.data[j]=numpy.ndarray(64,self.datatype,b)
+                self.data.shape = self.outputshape
+                return
+
+    def plot(self):
+        fig, axarr = plt.subplots(4,2,sharex=True,sharey=True)
+        for i in range(8):
+            axarr[i%4,i/4].plot(range(96),self.data[i,:])
+            axarr[i%4,i/4].set_title('CC_{}'.format(i))
+            axarr[i%4,i/4].annotate(
+                'ACD_mon_{0}_hi/lo={1}/{2}\nlag={3}'.format(
+                    i,self.header.acd[2*i+0],self.header.acd[2*i+1],
+                    self.header.lags[i]),
+                xy=(.7,.7), xycoords='axes fraction')
+        plt.show()
 
 f=open('/home/joakim/Downloads/149a04f1.ac1','rb')
-print sizeof(hblock),sizeof(dblock)
-
-cc = getcc(f)
-plt.plot(cc.transpose())
-plt.show()
+ac1 = ac()
+ac1.readblocks(f)
+ac1.plot()
 f.close()
