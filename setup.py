@@ -19,6 +19,8 @@ setup(
     url='http://www.molflow.com/odincal',
     install_requires=[
         'numpy',
+        'matplotlib',
+        'PyGreSQL',
         'setuptools',
     ],
     #tests_require=['setuptools'],
