@@ -1,3 +1,6 @@
+import pg
+
+create_statement = """
 create table ac (
    stw int not null,
    backend int not null,
@@ -31,7 +34,12 @@ create table ac (
    tail int,
    cc bytea,
    primary key (stw,backend)
-);
+)
+"""
+if __name__=='__main__':
+   con = pg.connect('odin')
+   con.query(create_statement)
+
 
 
    

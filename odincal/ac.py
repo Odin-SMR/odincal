@@ -34,11 +34,14 @@ class AC:
             {0.ssb1_fq}, {0.ssb2_fq}, {0.ssb3_fq}, {0.ssb4_fq}, {0.useraddress},
             {0.r}, {0.s}, {0.prescaler}, '{2}', {0.tail}, '{3}')
             
-            """.format(self.header,pg.escape_bytea(numpy.ndarray((8,2), 'int16', 
-                                self.header.acd_mon)),
-                       pg.escape_bytea(numpy.ndarray((8,),'int16',
-                                               self.header.lags)),
-                       pg.escape_bytea(self.data))
+            """.format(
+                self.header,
+                pg.escape_bytea(
+                    numpy.ndarray((8,2), 'int16', self.header.acd_mon)),
+                pg.escape_bytea(
+                    numpy.ndarray((8,), 'int16', self.header.lags)),
+                pg.escape_bytea(self.data)
+            )
         dbcon.query(query)
 
     def __repr__(self):
@@ -64,9 +67,11 @@ def getAC(f):
         if (h.backend&0xff0f)==0x7300:
             tmp = numpy.ndarray((12,64),'int16')
             for j in range(12):
-                f.readinto(d)
+                if f.readinto(d)==0:
+                    raise(EOFError('File ended.'))
                 tmp[j]=numpy.ndarray(64,'int16',d.userdata)
             return AC(h,tmp.reshape(8,96))
+    raise(EOFError('File ended.'))
 
 if __name__=="__main__":
     con = pg.connect('odin')

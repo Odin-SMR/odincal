@@ -10,10 +10,13 @@ setup(
     long_description=open("README.txt").read() + "\n" +
     open(join("docs", "CHANGELOG.txt")).read(),
 
-    packages = find_packages(exclude=['tests']),
+    packages = find_packages(exclude=['tests','db']),
     include_package_data=True,
     test_suite='tests',
     zip_safe=True,
+    entry_points= {"console_scripts": [
+            "ac2db = odincal.ac_insert:main",],},
+
     author='Joakim Möller',
     author_email='joakim.moller@molflow.com',
     url='http://www.molflow.com/odincal',
