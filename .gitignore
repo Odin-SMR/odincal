@@ -1,0 +1,7 @@
+.installed.cfg
+bin/
+eggs/
+odincal.egg-info/
+parts/
+*.pyc
+develop-eggs/

@@ -4,7 +4,7 @@ class Header(LittleEndianStructure):
     _fields_=[
         ('sync',c_ushort),
         ('stw',c_uint),
-        ('user',c_ushort),
+        ('backend',c_ushort),
         #data starts
         ('nodata0',(c_ushort*2)),
         ('counter',c_ushort),
@@ -57,7 +57,7 @@ class Header(LittleEndianStructure):
         ('prescaler',c_ushort),
         ('lags',(c_short*8)),
         ('noconfig2',(c_ushort*6)),
-        ('index',c_ushort),
+        ('tail',c_ushort),
         ('nodummy',(c_ushort*6)),
         ]
 

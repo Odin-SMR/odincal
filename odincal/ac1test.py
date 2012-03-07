@@ -1,4 +1,5 @@
 from odincal.data_structures import  Data,Header
+import pg
 import matplotlib.pyplot as plt
 import numpy
 
@@ -20,6 +21,26 @@ class AC:
                 xy=(.3,.7), xycoords='axes fraction')
         plt.show()
 
+    def write_to_db(self,dbcon):
+        query = """
+            insert into ac ( stw, backend, counter, chopper_pos, int_time,
+            acd_monitor, mask2, mask3, mask4, mask5, mask6, inttime,ccmxset,
+            switch, sim, mxm, ssb1_att, ssb2_att, ssb3_att, ssb4_att, ssb1_fq,
+            ssb2_fq, ssb3_fq, ssb4_fq, useraddress, r, s, prescaler, lags, tail,
+            cc) values ({0.stw}, {0.backend}, {0.counter}, {0.chopper_pos},
+            {0.int_time}, '{1}', {0.mask2}, {0.mask3}, {0.mask4},
+            {0.mask5}, {0.mask6}, {0.inttime}, {0.ccmxset}, {0.switch}, {0.sim},
+            {0.mxm}, {0.ssb1_att}, {0.ssb2_att}, {0.ssb3_att}, {0.ssb4_att},
+            {0.ssb1_fq}, {0.ssb2_fq}, {0.ssb3_fq}, {0.ssb4_fq}, {0.useraddress},
+            {0.r}, {0.s}, {0.prescaler}, '{2}', {0.tail}, '{3}')
+            
+            """.format(self.header,pg.escape_bytea(numpy.ndarray((8,2), 'int16', 
+                                self.header.acd_mon)),
+                       pg.escape_bytea(numpy.ndarray((8,),'int16',
+                                               self.header.lags)),
+                       pg.escape_bytea(self.data))
+        dbcon.query(query)
+
     def __repr__(self):
         output =""
         for i in self.header._fields_:
@@ -40,7 +61,7 @@ def getAC(f):
     h = Header()
     d = Data()
     while (f.readinto(h)!=0):
-        if (h.user&0xff0f)==0x7300:
+        if (h.backend&0xff0f)==0x7300:
             tmp = numpy.ndarray((12,64),'int16')
             for j in range(12):
                 f.readinto(d)
@@ -48,9 +69,12 @@ def getAC(f):
             return AC(h,tmp.reshape(8,96))
 
 if __name__=="__main__":
+    con = pg.connect('odin')
     f=open('/home/joakim/Downloads/149a04f1.ac1','rb')
     ac1 = getAC(f)
     print ac1
     ac2 = getAC(f)
     ac2.plot()
+    ac3 = getAC(f)
+    ac3.write_to_db(con)
     f.close()
