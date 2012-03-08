@@ -70,7 +70,12 @@ def getAC(f):
                 if f.readinto(d)==0:
                     raise(EOFError('File ended.'))
                 tmp[j]=numpy.ndarray(64,'int16',d.userdata)
-            return AC(h,tmp.reshape(8,96))
+            tmp.shape = (8,96)
+            #correction first value in cc due to overflow
+            tmp = tmp.astype('int32')
+            for i in range(8):
+                tmp[i,0] = numpy.uint16(tmp[i,0])
+            return AC(h,tmp)
     raise(EOFError('File ended.'))
 
 if __name__=="__main__":

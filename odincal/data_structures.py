@@ -13,7 +13,7 @@ class Header(LittleEndianStructure):
         ('nodata2',(c_ushort*3)),
         ('int_time',c_ushort),
         ('nodata3',(c_ushort*3)),
-        ('acd_mon',(c_short*16)),
+        ('acd_mon',(c_ushort*16)),
         #config copy starts
         #08
         ('mask3',c_ushort,8),
