@@ -5,7 +5,7 @@ from os.path import join
 
 setup(
     name='odincal',
-    version='0.0.1',
+    version='0.0.2',
     description = 'Odin calibration project',
     long_description=open("README.txt").read() + "\n" +
     open(join("docs", "CHANGELOG.txt")).read(),
@@ -15,7 +15,8 @@ setup(
     test_suite='tests',
     zip_safe=True,
     entry_points= {"console_scripts": [
-            "ac2db = odincal.ac_insert:main",],},
+            "files2db = odincal.insert:files2db",
+    ],},
 
     author='Joakim Möller',
     author_email='joakim.moller@molflow.com',

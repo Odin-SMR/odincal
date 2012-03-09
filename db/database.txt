@@ -4,5 +4,3 @@ $> sudo -u postgres psql
 
 psql> create database odin owner joakim
 
-$> psql odin -f createscript.sql
-CREATE TABLE
