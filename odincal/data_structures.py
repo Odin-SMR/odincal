@@ -15,40 +15,40 @@ class HK(LittleEndianStructure):
         ('sync',c_ushort),
         ('stw',c_uint),
         ('backend',c_ushort),
-        ('ps2', c_ushort), #HK47
-        ('aos', (c_ushort*4)),
-        ('os', (c_ushort*3)),
-        ('ps1', c_ushort), #HK46
-        ('pyro1', c_ushort),#HK4C
-        ('ps3', c_ushort), #HK48
-        ('pyro2', c_ushort), #HK4D
-        ('ps4', c_ushort), #HK49
-        ('temp1', c_ushort), #HK40
-        ('temp2', c_ushort), #HK41
-        ('rwss', c_uint), #HK42
-        ('plla', (c_ushort*8)),
-        ('pllb', (c_ushort*8)),
-        ('mecha', (c_ushort*6)),
-        ('mechb', (c_ushort*6)),
-        ('mecha_sync', c_ushort), #ACDC sync word
-        ('mechb_sync', c_ushort), #ACS avail
-        ('acdc1_sync', c_ushort), #HK pyro d5
-        ('acdc2_sync', c_ushort), #HK4A
-        ('ghz119_sync', c_ushort),
-        ('subcom', c_ushort), #HK20
+        ('ps2', c_ushort), #HK47 (2,3)
+        ('aos', (c_ushort*4)), #(2,(4,5,6,7))
+        ('os', (c_ushort*3)), #(5,(5,6,7)) 
+        ('pyrod2', c_ushort), #HK46 (2,2)
+        ('pyro1', c_ushort),#HK4C (11,3)
+        ('pyro1d', c_ushort), #HK48 (11,1)
+        ('ps3', c_ushort), #HK4D (11,4)
+        ('ps1', c_ushort), #HK49 (11,2)
+        ('temp1', c_ushort), #HK40 (11,7)
+        ('temp2', c_ushort), #HK41 (11,8)
+        ('rwss', c_uint), #HK42 (11,(9,10))
+        ('plla', (c_ushort*8)), # (11,11)
+        ('pllb', (c_ushort*8)), # (11,(19)
+        ('mecha', (c_ushort*6)), #(11,27)
+        ('mechb', (c_ushort*6)), #(11,33)
+        ('mecha_sync', c_ushort), #ACDC sync word (0,3)
+        ('mechb_sync', c_ushort), #ACS avail (0,4)
+        ('acdc1_sync', c_ushort), #HK pyro d5 (0,1)
+        ('acdc2_sync', c_ushort), #HK4A (0,2)
+        ('ghz119_sync', c_ushort), #(0,5)
+        ('subcom', c_ushort), #HK20 (9,(1,2,3))
         ('oscreg', c_uint), #HK21,HK22
-        ('magxz', c_ushort), #HK44
+        ('magxz', c_ushort), #HK44 (12,(1,2)
         ('magyr', c_ushort), #HK45
-        ('acdc1_slow', c_ushort), #ACDC slow
-        ('acdc2_slow', c_ushort), #ACDC slow
-        ('ocs_peek', c_ushort), #HK30
+        ('acdc1_slow', c_ushort), #ACDC slow (12,15)
+        ('acdc2_slow', c_ushort), #ACDC slow (12,16)
+        ('ocs_peek', c_ushort), #HK30  (13,(1,2,3)
         ('hk31', c_ushort), #HK31
         ('stw_comp', c_ushort), #HK32
-        ('Gyro1', c_ushort), #gyro 1
-        ('Gyro2', c_ushort), #gyro 2
-        ('Gyro3', c_ushort), #gyro 3
-        ('ibat1', c_ushort), #HK4E
-        ('ibat2', c_ushort), #HK4F
+        ('Gyro1', c_ushort), #gyro 1 (13,4)
+        ('Gyro2', c_ushort), #gyro 2 (13,10
+        ('Gyro3', c_ushort), #gyro 3 (13,16
+        ('ibat1', c_ushort), #HK4E (14,39)
+        ('ibat2', c_ushort), #HK4F (14,40)
         ('nodata', (c_ushort*2)),
         ('index',c_short,8),
         ('acdc',c_short,4),
