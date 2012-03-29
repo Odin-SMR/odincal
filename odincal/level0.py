@@ -49,7 +49,6 @@ def getAC(ac):
             'acd_mon': pg.escape_bytea(mon.data),
             'cc': pg.escape_bytea(cc.data),
         }
-        print cc.dtype
         return datadict
     raise(EOFError('File ended.'))
 
