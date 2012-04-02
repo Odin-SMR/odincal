@@ -15,7 +15,7 @@ setup(
     test_suite='tests',
     zip_safe=True,
     entry_points= {"console_scripts": [
-            "files2db = odincal.insert:files2db",
+            "files2db = odincal.level0:files2db",
     ],},
 
     author='Joakim Möller',
