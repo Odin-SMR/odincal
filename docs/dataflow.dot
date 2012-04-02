@@ -1,0 +1,31 @@
+digraph g {
+	// file importers
+        node [ shape = box];
+        ac1_files; ac2_files;shk_files; att_files; shk_table; ac_table; att_table; spectra_table; calibrated_table;
+	node [shape = oval];
+	ac1_files -> ac_importer;
+	ac2_files -> ac_importer;
+	ac_importer -> ac_table;
+        shk_files -> shk_importer;
+        shk_importer -> shk_table;
+        att_files -> att_importer;
+        att_importer -> att_table;
+        
+        // spectra
+        ac_table -> create_spectrum;
+        create_spectrum -> spectra_table;
+
+        // calibrate
+        shk_table -> calibrate;
+        att_table -> calibrate;
+	spectra_table -> calibrate;
+
+	calibrate -> calibrated_table;
+
+	
+
+//        { rank = same; ac1_files; ac2_files; shk_files; }
+//        { rank = same; acn_table; shk_table; spectra_table; calibrated_table;
+//		att_table;}
+//	{ rank = same; acn_importer; shk_importer; create_spectrum; calibrate; }
+}
