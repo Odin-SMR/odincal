@@ -2,6 +2,7 @@ drop type backend cascade;
 drop type signal_type cascade;
 drop type frontend cascade;
 drop table ac_level0 cascade;
+drop table ac_level1a cascade;
 
 create type backend as enum ('AC1','AC2');
 create type signal_type as enum ('REF','SIG');
@@ -21,4 +22,11 @@ create table ac_level0(
    acd_mon bytea,
    cc bytea,
    constraint pk_ac_data primary key (backend,stw)
+);
+
+create table ac_level1a(
+   stw bigint,
+   backend backend,
+   spectra bytea,
+   constraint pk_aclevel1a_data primary key (backend,stw)
 );
