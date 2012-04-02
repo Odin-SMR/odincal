@@ -18,15 +18,22 @@ def files2db():
         for datafile in argv[1:]:
             extension = splitext(datafile)[1]
             if extension == '.ac1' or extension == '.ac2':
-                f = ACfile(datafile,con)
+                f = ACfile(datafile)
                 while 1:
                     try:
                         datadict = getAC(f)
-                        con.insert('ac_level0',datadict)
+                        dbdict = db_prep(datadict,con)
+                        con.insert('ac_level0',dbdict)
                     except EOFError:
                         break
 
-def getAC(ac,db):
+def db_prep(datadict,db):
+    dbdict = dict(datadict)
+    dbdict['acd_mon'] = db.escape_bytea(datadict['acd_mon'])
+    dbdict['cc']  = db.escape_bytea(datadict['cc'])
+    return dbdict
+
+def getAC(ac):
     """AC factory.
     reads a fileobject and creates a dictionary for easy insertation
     into a postgresdatabase.
@@ -45,16 +52,28 @@ def getAC(ac,db):
             data.append(ac.getBlock())
             if data[j]==[]:
                 raise(EOFError('File ended.'))
-        cc=numpy.array(data)
+        cc=numpy.array(data,dtype='int16')
         cc.shape = (8,96)
-        lags = numpy.array(head[50:58],dtype='int32')
-        zlags = (lags<<4) | cc[:,0]
-        cc[:,0]=zlags
-        cc = cc*2048.0*(1/ac.IntTime(head))/(CLOCKFREQ/2.0)
-        mon = numpy.array(head[16:32],dtype='int32')
-        mon.shape=(2,8)
-        mon |= zlags & 0xf0000
-        mon = mon * 1024.0*(1/ac.IntTime(head))/(CLOCKFREQ/2.0)
+        cc64 = numpy.array(cc,dtype='int64')
+        lags = numpy.array(head[50:58],dtype='uint16')
+        lags64 = numpy.array(lags,dtype='int64')
+        zlags = numpy.left_shift(lags64,4)  + numpy.bitwise_and(cc64[:,0],0xfff)
+        cc64[:,0]=zlags
+        #find potential underflow
+        mask = cc64[:,2]>0
+        cc64[mask,2]-=65536
+
+        cc64 = cc64*2048.0*(1/ac.IntTime(head))/(CLOCKFREQ/2.0)
+        mon = numpy.array(head[16:32],dtype='uint16')
+        mon.shape=(8,2)
+        mon64 = numpy.array(mon.transpose(),dtype='int64') + numpy.bitwise_and(
+            zlags,0xf0000)
+        #find potential overflows/underflows
+        #highmask = (mon64-zlags)>0x8000
+        #lowmask =  (zlags-mon64)<0x8000
+        #mon64[highmask]-=0x10000
+        #mon64[lowmask] +=0x10000
+        mon64 = mon64 * 1024.0*(1/ac.IntTime(head))/(CLOCKFREQ/2.0)
         prescaler = head[49]
         datadict = {
             'stw': stw,
@@ -66,8 +85,8 @@ def getAC(ac,db):
             'prescaler': prescaler,
             'inttime': ac.IntTime(head),
             'mode':ac.Mode(head),
-            'acd_mon': db.escape_bytea(mon.data),
-            'cc': db.escape_bytea(cc.data),
+            'acd_mon': mon64,
+            'cc': cc64,
         }
         return datadict
     raise(EOFError('File ended.'))

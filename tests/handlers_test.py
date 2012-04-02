@@ -7,7 +7,7 @@ from pkg_resources import resource_filename
 
 #from odincal.data_structures import AC,ACData,HK
 from oops.level0 import ACfile
-from odincal.level0 import getAC#,getHK,ACHandler,HKHandler
+from odincal.level0 import getAC,db_prep#,getHK,ACHandler,HKHandler
 
 class dbtest(pg.DB):
     def __init__(self):
@@ -121,8 +121,9 @@ class ACTestCase(unittest.TestCase):
         while 1:
             try:
                 data = getAC(ac)
+                datadb = db_prep(data,self.db)
 
-                self.db.insert('ac_level0',data)
+                self.db.insert('ac_level0',datadb)
             except EOFError:
                 break
         q=self.db.query('select count(*) from ac_level0')
