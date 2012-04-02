@@ -1,15 +1,35 @@
 from oops.level0 import ACfile
 
 
-import pg
 import ctypes
 import numpy
+from pg import DB
+from sys import argv
+from os.path import splitext
+
+class db(DB):
+    def __init__(self):
+        DB.__init__(self,dbname='odin')
 
 
+def files2db():
+    if len(argv)>1:
+        con = db()
+        for datafile in argv[1:]:
+            extension = splitext(datafile)[1]
+            if extension == '.ac1' or extension == '.ac2':
+                f = ACfile(datafile,con)
+                while 1:
+                    try:
+                        datadict = getAC(f)
+                        con.insert('ac_level0',datadict)
+                    except EOFError:
+                        break
 
-def getAC(ac):
+def getAC(ac,db):
     """AC factory.
-    reads a fileobject and creates an AC instance
+    reads a fileobject and creates a dictionary for easy insertation
+    into a postgresdatabase.
     """
     backend = {
         0x7380 : 'AC1',
@@ -46,8 +66,8 @@ def getAC(ac):
             'prescaler': prescaler,
             'inttime': ac.IntTime(head),
             'mode':ac.Mode(head),
-            'acd_mon': pg.escape_bytea(mon.data),
-            'cc': pg.escape_bytea(cc.data),
+            'acd_mon': db.escape_bytea(mon.data),
+            'cc': db.escape_bytea(cc.data),
         }
         return datadict
     raise(EOFError('File ended.'))
