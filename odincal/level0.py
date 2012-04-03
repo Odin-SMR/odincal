@@ -36,7 +36,7 @@ def db_prep(datadict,db):
 def getAC(ac):
     """AC factory.
     reads a fileobject and creates a dictionary for easy insertation
-    into a postgresdatabase.
+    into a postgresdatabase. Uses Ohlbergs routines to read the files (ACfile)
     """
     backend = {
         0x7380 : 'AC1',
@@ -57,22 +57,23 @@ def getAC(ac):
         cc64 = numpy.array(cc,dtype='int64')
         lags = numpy.array(head[50:58],dtype='uint16')
         lags64 = numpy.array(lags,dtype='int64')
-        zlags = numpy.left_shift(lags64,4)  + numpy.bitwise_and(cc64[:,0],0xfff)
-        cc64[:,0]=zlags
-        #find potential underflow
+        #combine lags and data to ensure validity of first value in cc-channels
+        zlags = numpy.left_shift(lags64,4)  + numpy.bitwise_and(cc64[:,0],0xf)
+        zlags.shape=(8,1)
+        cc64[:,0]=zlags[:,0]
+        #find potential underflow in third element of cc
         mask = cc64[:,2]>0
         cc64[mask,2]-=65536
-
+        #scale
         cc64 = cc64*2048.0*(1/ac.IntTime(head))/(CLOCKFREQ/2.0)
         mon = numpy.array(head[16:32],dtype='uint16')
         mon.shape=(8,2)
-        mon64 = numpy.array(mon.transpose(),dtype='int64') + numpy.bitwise_and(
-            zlags,0xf0000)
-        #find potential overflows/underflows
-        #highmask = (mon64-zlags)>0x8000
-        #lowmask =  (zlags-mon64)<0x8000
-        #mon64[highmask]-=0x10000
-        #mon64[lowmask] +=0x10000
+        #find potential overflows/underflows in monitor values
+        mon64 = numpy.bitwise_and(zlags,0xf0000) + mon
+        overflow_mask = numpy.abs(mon64-zlags)>0x8000
+        mon64[overflow_mask & (mon64>zlags)]-=0x10000
+        mon64[overflow_mask & (mon64<zlags)] +=0x10000
+        #scale
         mon64 = mon64 * 1024.0*(1/ac.IntTime(head))/(CLOCKFREQ/2.0)
         prescaler = head[49]
         datadict = {
