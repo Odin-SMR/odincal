@@ -2,7 +2,7 @@ import numpy
 import sys
 from math import erfc, erf, pi, sqrt, exp,cos
 from pg import DB
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 class db(DB):
     def __init__(self):
@@ -53,7 +53,8 @@ class Level1a:
         f=numpy.array([data[1],data[1][::-1,]])
         f.shape=(2*self.nred,)
         f=hanning(f,2*self.nred)
-        f=numpy.fft.rfft(f,224)
+        #f=numpy.fft.rfft(f,2*self.nred-1)
+        f=numpy.fft.fft(f)
         #Reintroduce power into filter shapes.
         data=f[0:self.nred]*power
         return 1,data
@@ -61,7 +62,7 @@ class Level1a:
      
 def hanning(data,n):
     w = pi/n
-    for i in range(0,n):
+    for i in range(1,n):
         data[i] = data[i]*(0.5+0.5*cos(w*i))
     return data
    
@@ -108,15 +109,11 @@ def ac_level1a_importer():
     result=query.dictresult()
     ac=Level1a()
     for ind,row in enumerate(result):
-        acd_mon=numpy.ndarray(shape=(2,8),dtype='float64',
+        acd_mon=numpy.ndarray(shape=(8,2),dtype='float64',
                               buffer=con.unescape_bytea(row['acd_mon']))
         cc=numpy.ndarray(shape=(8,96),dtype='float64',
                          buffer=con.unescape_bytea(row['cc']))
-        #if ind==1:
-        #    break
-        #print acd_mon
-        #print cc[:,0]
-        ac.reduceAC(cc,acd_mon[0,:],acd_mon[1,:])
+        ac.reduceAC(cc,acd_mon[:,0],acd_mon[:,1])
         a=numpy.array(ac.got)
         a.shape=(8*112,)
         data=con.escape_bytea(abs(a).tostring())
