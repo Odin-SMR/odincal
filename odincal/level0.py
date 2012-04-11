@@ -1,4 +1,4 @@
-from oops.level0 import ACfile
+from oops.level0 import ACfile,FBAfile
 
 
 import ctypes
@@ -12,18 +12,37 @@ class db(DB):
         DB.__init__(self,dbname='odin')
 
 
-def files2db():
+def ac2db():
     if len(argv)>1:
         con = db()
         for datafile in argv[1:]:
+            stw_overflow= datafile.startswith('1')
             extension = splitext(datafile)[1]
             if extension == '.ac1' or extension == '.ac2':
                 f = ACfile(datafile)
                 while 1:
                     try:
                         datadict = getAC(f)
+                        if stw_overflow:
+                            datadict['stw']+=2**32
                         dbdict = db_prep(datadict,con)
                         con.insert('ac_level0',dbdict)
+                    except EOFError:
+                        break
+def fba2db():
+    if len(argv)>1:
+        con = db()
+        for datafile in argv[1:]:
+            stw_overflow= datafile.startswith('1')
+            extension = splitext(datafile)[1]
+            if extension == '.fba':
+                f = FBAfile(datafile)
+                while 1:
+                    try:
+                        datadict = getFBA(f)
+                        if stw_overflow:
+                            datadict['stw']+=2**32
+                        con.insert('fba_level0',datadict)
                     except EOFError:
                         break
 
@@ -88,6 +107,22 @@ def getAC(ac):
             'mode':ac.Mode(head),
             'acd_mon': mon64,
             'cc': cc64,
+        }
+        return datadict
+    raise(EOFError('File ended.'))
+
+def getFBA(fba):
+    """AC factory.
+    reads a fileobject and creates a dictionary for easy insertation
+    into a postgresdatabase. Uses Ohlbergs routines to read the files (ACfile)
+    """
+    word = fba.getSpectrumHead()
+    while word is not None:
+        stw = fba.stw
+        mech = fba.Type(word)
+        datadict = {
+            'stw': stw,
+            'mech_type': mech,
         }
         return datadict
     raise(EOFError('File ended.'))
