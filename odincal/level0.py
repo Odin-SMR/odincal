@@ -5,7 +5,7 @@ import ctypes
 import numpy
 from pg import DB
 from sys import argv
-from os.path import splitext
+from os.path import splitext,basename
 
 class db(DB):
     def __init__(self):
@@ -16,7 +16,7 @@ def ac2db():
     if len(argv)>1:
         con = db()
         for datafile in argv[1:]:
-            stw_overflow= datafile.startswith('1')
+            stw_overflow= basename(datafile).startswith('1')
             extension = splitext(datafile)[1]
             if extension == '.ac1' or extension == '.ac2':
                 f = ACfile(datafile)
@@ -33,7 +33,7 @@ def fba2db():
     if len(argv)>1:
         con = db()
         for datafile in argv[1:]:
-            stw_overflow= datafile.startswith('1')
+            stw_overflow= basename(datafile).startswith('1')
             extension = splitext(datafile)[1]
             if extension == '.fba':
                 f = FBAfile(datafile)
