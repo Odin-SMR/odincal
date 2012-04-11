@@ -15,7 +15,8 @@ setup(
     test_suite='tests',
     zip_safe=True,
     entry_points= {"console_scripts": [
-            "files2db = odincal.level0:files2db",
+            "ac2db = odincal.level0:ac2db",
+            "fba2db = odincal.level0:fba2db",
             "ac_level1a_importer = odincal.ac_level1a_importer:ac_level1a_importer",
     ],},
 
