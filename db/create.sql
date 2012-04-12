@@ -6,6 +6,8 @@ drop type scan cascade;
 drop table ac_level0 cascade;
 drop table ac_level1a cascade;
 drop table fba_level0;
+drop table attitude_level0 cascade;
+drop table attitude_level1 cascade;
 
 create type backend as enum ('AC1','AC2');
 create type signal_type as enum ('REF','SIG');
@@ -39,6 +41,32 @@ create table fba_level0(
    stw bigint,
    mech_type mech,
    constraint pk_fba_level0 primary key (stw)
+);
+
+create table attitude_level0(
+   stw bigint,
+   year int,
+   mon int,
+   day int,
+   hour int,
+   min int,
+   secs real,
+   orbit real,
+   qt real[4],
+   qa real[4],
+   qe real[3],
+   gps real[6],
+   acs real,
+   constraint pk_attitudelevel0_data primary key (stw)
+);
+
+create table attitude_level1(
+   stw bigint,
+   backend backend,     
+   latitude real,
+   longitude real,
+   altitude real,
+   constraint pk_attitudelevel1_data primary key (stw,backend)
 );
 
 CREATE OR REPLACE FUNCTION public.getscans()
