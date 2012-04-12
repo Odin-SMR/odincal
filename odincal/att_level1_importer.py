@@ -26,7 +26,7 @@ def att_level1_importer():
 	query=con.query('''select year,mon,day,hour,min,secs,stw,
                            orbit,qt,qa,qe,gps,acs
 	                   from attitude_level0 where 
-                           stw>{0}-2000000 and stw<{0}+2000000 
+                           stw>{0}-100 and stw<{0}+100 
                            order by stw'''.format(sig['stw']))
 	result=query.dictresult()
 	if len(result)>0:
@@ -57,15 +57,14 @@ def att_level1_importer():
             #search for the index with the lowest stw 
             #above the desired stw in the lookup table 
             ind=(attstw>stw).nonzero()[0]
-            #if len(ind)==0:
-             #   pass
-                #continue
-            #if ind[0]==0:
-             #   pass
-                #continue
-            #i=ind[0]
+            if len(ind)==0:
+                pass
+                #not enough match
+            if ind[0]==0:
+                pass
+                #not enough matcj
+            i=ind[0]
             #now interpolate
-            i=3
             dt = attstw[i]-attstw[i-1]
             dt0 = attstw[i]-stw
             dt1 = stw-attstw[i-1]

@@ -17,7 +17,9 @@ setup(
     entry_points= {"console_scripts": [
             "ac2db = odincal.level0:ac2db",
             "fba2db = odincal.level0:fba2db",
+            "att2db = odincal.level0:att2db",
             "ac_level1a_importer = odincal.ac_level1a_importer:ac_level1a_importer",
+            "att_level1_importer = odincal.att_level1_importer:att_level1_importer",
     ],},
 
     author='Joakim Möller',
