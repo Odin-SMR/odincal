@@ -3,17 +3,42 @@ drop type signal_type cascade;
 drop type frontend cascade;
 drop type mech cascade;
 drop type scan cascade;
+drop type shk_type cascade;
+drop type sourcemode cascade;
+drop type spectype cascade;
+
 drop table ac_level0 cascade;
 drop table ac_level1a cascade;
+drop table ac_level1b cascade;
+drop table ac_cal_level1b cascade;
 drop table fba_level0;
 drop table attitude_level0 cascade;
 drop table attitude_level1 cascade;
+drop table shk_level0 cascade;
+drop table shk_level1 cascade;
+drop table process cascade;
 
 create type backend as enum ('AC1','AC2');
 create type signal_type as enum ('REF','SIG');
 create type frontend as enum ('549','495','572','555','SPL','119');
 create type mech as enum ('REF','SK1','CAL','SK2');
 create type scan as (start bigint, stw bigint);
+create type shk_type as enum ('LO495','LO549','LO555','LO572','SSB495','SSB549',
+'SSB555','SSB572','mixC495','mixC549','mixC555','mixC572','imageloadB',
+'hotloadA','hotloadB')
+create type sourcemode as enum ('STRAT','ODD_H','ODD_N','WATER','SUMMER',
+'DYNAM');
+create type spectype as enum ('SIG','REF','CAL','CMB','DRK','SK1','SK2','SPE',
+'SSB','AVE');
+
+create table process(
+   orbit int,
+   backend backend,
+   stws bytea,
+   stws_shape varchar,
+   processed int,
+   constraint pk_process_data primary key (orbit,backend)
+);
 
 create table ac_level0(
    stw bigint,
@@ -37,6 +62,44 @@ create table ac_level1a(
    constraint pk_aclevel1a_data primary key (backend,stw)
 );
 
+create table ac_level1b(
+   stw bigint,
+   backend backend,
+   version int,
+   intmode int,
+   spectra bytea,
+   channels int,
+   skyfreq double precision,
+   lofreq double precision,
+   restfreq double precision,
+   maxsuppression double precision,
+   tsys real,
+   sourcemode sourcemode,
+   freqmode int,
+   efftime real,
+   sbpath real,
+   calstw bigint,
+   constraint pk_aclevel1b_data primary key (backend,stw,version,intmode)
+);
+
+create table ac_cal_level1b(
+   stw bigint,
+   backend backend,
+   version int, 
+   spectype spectype,
+   intmode int,
+   spectra bytea,
+   channels int,
+   skyfreq double precision,
+   lofreq double precision,
+   restfreq double precision,
+   maxsuppression double precision,
+   sourcemode sourcemode,
+   freqmode int,
+   sbpath real,
+   constraint pk_accallevel1b_data primary key (backend,stw,version,spectype,intmode)
+);
+
 create table fba_level0(
    stw bigint,
    mech_type mech,
@@ -50,24 +113,62 @@ create table attitude_level0(
    day int,
    hour int,
    min int,
-   secs real,
-   orbit real,
-   qt real[4],
-   qa real[4],
-   qe real[3],
-   gps real[6],
-   acs real,
+   secs double precision,
+   orbit double precision,
+   qt double precision[4],
+   qa double precision[4],
+   qe double precision[3],
+   gps double precision[6],
+   acs double precision,
    constraint pk_attitudelevel0_data primary key (stw)
 );
 
 create table attitude_level1(
    stw bigint,
-   backend backend,     
+   backend backend, 
+   mjd double precision,
+   lst real, 
+   orbit double precision,   
    latitude real,
    longitude real,
    altitude real,
+   skybeamhit int,
+   ra2000 real,
+   dec2000 real,
+   vsource real,
+   qtarget double precision[4],
+   qachieved double precision[4],
+   qerror double precision[3],
+   gpspos double precision[3],
+   gpsvel double precision[3],
+   sunpos double precision[3],
+   moonpos double precision[3],
+   sunzd real,
+   vgeo real,
+   vlsr real,   
+   alevel int,
    constraint pk_attitudelevel1_data primary key (stw,backend)
 );
+
+create table shk_level0(
+   stw bigint,
+   shk_type shk_type,
+   shk_value real,
+   constraint pk_shklevel0_data primary key (stw,shk_type)
+);
+
+create table shk_level1(
+   stw bigint,
+   backend backend,
+   LO real,
+   SSB real,
+   mixC real,
+   imageloadB real,
+   hotloadA real,
+   hotloadB real,
+   constraint pk_shklevel1_data primary key (stw,backend)
+);
+
 
 CREATE OR REPLACE FUNCTION public.getscans()
  RETURNS SETOF scan
@@ -93,4 +194,4 @@ begin
    end loop;
    return;
 end;
-$function$
+$function$;
