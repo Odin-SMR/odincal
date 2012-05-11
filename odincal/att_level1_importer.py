@@ -26,7 +26,7 @@ def att_level1_importer():
 	query=con.query('''select year,mon,day,hour,min,secs,stw,
                            orbit,qt,qa,qe,gps,acs
 	                   from attitude_level0 where 
-                           stw>{0}-100 and stw<{0}+100 
+                           stw>{0}-200 and stw<{0}+200 
                            order by stw'''.format(sig['stw']))
 	result=query.dictresult()
 	if len(result)>0:
@@ -58,11 +58,11 @@ def att_level1_importer():
             #above the desired stw in the lookup table 
             ind=(attstw>stw).nonzero()[0]
             if len(ind)==0:
-                pass
+                continue
                 #not enough match
             if ind[0]==0:
-                pass
-                #not enough matcj
+                continue
+                #not enough match
             i=ind[0]
             #now interpolate
             dt = attstw[i]-attstw[i-1]
@@ -79,14 +79,28 @@ def att_level1_importer():
             datadict={
                 'stw'       :sig['stw'],
                 'backend'   :sig['backend'],
+                'mjd'       :s.mjd,
+                'lst'       :s.lst,
+                'orbit'     :s.orbit,
                 'longitude' :s.longitude,
                 'latitude'  :s.latitude,
-                'altitude'  :s.altitude
+                'altitude'  :s.altitude,
+                'skybeamhit':s.skybeamhit,
+                'ra2000'    :s.ra2000,
+                'dec2000'   :s.dec2000,
+                'vsource'   :s.vsource,
+                'qtarget'   :"{{{},{},{},{}}}".format(*s.qtarget),
+                'qachieved' :"{{{},{},{},{}}}".format(*s.qachieved),
+                'qerror'    :"{{{},{},{}}}".format(*s.qerror),
+                'gpspos'    :"{{{},{},{}}}".format(*s.gpspos),
+                'gpsvel'    :"{{{},{},{}}}".format(*s.gpsvel),
+                'sunpos'    :"{{{},{},{}}}".format(*s.sunpos),
+                'moonpos'   :"{{{},{},{}}}".format(*s.moonpos),
+                'sunzd'     :s.sunzd,
+                'vgeo'      :s.vgeo,
+                'vlsr'      :s.vlsr,
+                'alevel'    :s.level,
                 }
             con.insert('attitude_level1',datadict)
     con.close()
-            #print s.longitude,s.latitude,s.altitude
-            #print s.gpspos,s.gpsvel,s.sunpos,s.sunzd
-            #print s.ra2000,s.dec2000,s.vgeo,s.skybeamhit
-            #print dir(s)
-
+            

@@ -121,7 +121,7 @@ def ac_level1a_importer():
     query=con.query('''select stw,backend,acd_mon,cc from
                  ac_level0 
                  natural left join ac_level1a
-                 where spectra is Null and backend='AC1' order by stw''')
+                 where spectra is Null order by stw''')
     result=query.dictresult()
     ac=Level1a()
     for ind,row in enumerate(result):

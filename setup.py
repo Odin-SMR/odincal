@@ -18,8 +18,12 @@ setup(
             "ac2db = odincal.level0:ac2db",
             "fba2db = odincal.level0:fba2db",
             "att2db = odincal.level0:att2db",
+            "shk2db = odincal.level0:shk2db",
             "ac_level1a_importer = odincal.ac_level1a_importer:ac_level1a_importer",
             "att_level1_importer = odincal.att_level1_importer:att_level1_importer",
+            "shk_level1_importer = odincal.shk_level1_importer:shk_level1_importer",
+            "level1b_importer = odincal.level1b_importer:level1b_importer",
+            "level1b_exporter = odincal.level1b_exporter:level1b_exporter",
     ],},
 
     author='Joakim Möller',

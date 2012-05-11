@@ -1,4 +1,4 @@
-from oops.level0 import ACfile,FBAfile
+from oops.level0 import ACfile,FBAfile,SHKfile,HKdata
 from oops import attitude
 
 import ctypes
@@ -54,6 +54,71 @@ def att2db():
                 datalist=getATT(datafile)
                 for datadict in datalist:
                     con.insert('attitude_level0',datadict)
+
+def shk2db():
+    if len(argv)>1:
+        con = db()
+        for datafile in argv[1:]:
+            stw_overflow= basename(datafile).startswith('1')
+            extension = splitext(datafile)[1]
+            if extension == '.shk':
+                hk=SHKfile(datafile)
+                datadict=getSHK(hk)
+                for data in datadict:
+                    for index,stw in enumerate(datadict[data][0]):
+                        if stw_overflow:
+                            stw+=2**32      
+                        datainsert={
+                            'stw'      :stw,
+                            'shk_type' :data,
+                            'shk_value' :float(datadict[data][1][index]),
+                            }
+                        con.insert('shk_level0',datainsert)
+def getSHK(hk):
+    """use Ohlbergs code to read in shk data from file
+        and creates a dictionary for easy insertation
+        into a postgresdatabase.
+        """
+    (STWa,LO495,LO549,STWb,LO555,LO572)=hk.getLOfreqs()
+    (STW, SSB495, SSB549, SSB555, SSB572)= hk.getSSBtunings()
+    shktypes={
+              "LO495"            :(STWa,LO495),
+              "LO549"            :(STWa,LO549),
+              "LO555"            :(STWb,LO555),
+              "LO572"            :(STWb,LO572),
+              "SSB495"           :(STW,SSB495),
+              "SSB549"           :(STW,SSB549),
+              "SSB555"           :(STW,SSB555),
+              "SSB572"           :(STW,SSB572),
+              "mixC495":         [],
+              "mixC549":         [],
+              "mixC555":         [],
+              "mixC572":         [],
+              "imageloadB":      [],
+              "hotloadA"  :      [],
+              "hotloadB"  :      []
+              }
+    shktypeslist={
+        "mixer current 495"  :"mixC495",
+        "mixer current 549"  :"mixC549",
+        "mixer current 555"  :"mixC555",
+        "mixer current 572"  :"mixC572", 
+        "image load B-side"  :"imageloadB",
+        "hot load A-side"    :"hotloadA",
+        "hot load B-side"    :"hotloadB",
+        }
+    for shktype in shktypeslist: 
+        table = HKdata[shktype]
+        data = hk.getHKword(table[0],sub=table[1])
+        data1 = map(table[2], data[1])
+        if shktype=="hot load A-side" or shktype=="hot load B-side":
+           data1 = numpy.array(data1)+273.15
+        shktypes[shktypeslist[shktype]]=(data[0],data1)
+    return shktypes
+        
+
+
+
 
 def db_prep(datadict,db):
     dbdict = dict(datadict)
