@@ -507,6 +507,7 @@ class Level1b_cal:
                 data[i]=data[i]*cal[i]
                 data[i] += spill
                 data[i] /= eta
+                
             else: 
                 data[i] = 0.0
         sig.data=data
@@ -767,7 +768,6 @@ def level1b_importer():
         exit(0)
 
     #extract all necessary data for the orbit
-   
     temp=[result2[0]['min'],result2[0]['max'],backend,stwoff]
     query=con.query('''select ac_level0.stw,backend,frontend,sig_type,
                        spectra,inttime,qerror,qachieved,

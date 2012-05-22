@@ -1,31 +1,34 @@
 digraph g {
 	// file importers
         node [ shape = box];
-        ac1_files; ac2_files;shk_files; att_files; shk_table; ac_table; att_table; spectra_table; calibrated_table;
+        ac1_files; ac2_files;shk_files; att_files; fba_files; shk_level0; ac_level0; att_level0; fba_level0; shk_level1; ac_level1a; att_level1; ac_level1b; ac_cal_level1b;
 	node [shape = oval];
-	ac1_files -> ac_importer;
-	ac2_files -> ac_importer;
-	ac_importer -> ac_table;
-        shk_files -> shk_importer;
-        shk_importer -> shk_table;
-        att_files -> att_importer;
-        att_importer -> att_table;
-        
-        // spectra
-        ac_table -> create_spectrum;
-        create_spectrum -> spectra_table;
+	ac1_files -> ac2db;
+	ac2_files -> ac2db;
+	ac2db -> ac_level0;
+        shk_files -> shk2db;
+        shk2db -> shk_level0;
+        att_files -> att2db;
+        att2db -> att_level0;
+        fba_files -> fba2db;
+        fba2db -> fba_level0;
+	ac_level0 -> ac_l1a_imp;
+	ac_l1a_imp -> ac_level1a;
+	ac_level0 -> att_l1_imp;
+	att_level0 -> att_l1_imp;
+	att_l1_imp -> att_level1;
+ 	ac_level0 ->shk_l1_imp;
+	shk_level0 -> shk_l1_imp;
+	shk_l1_imp -> shk_level1;
+	ac_level0 -> level1b_importer;
+	ac_level1a -> level1b_importer;
+       	att_level1 -> level1b_importer;
+	shk_level1 -> level1b_importer;
+	fba_level0 -> level1b_importer;
+	level1b_importer ->ac_level1b;
+	level1b_importer ->ac_cal_level1b;  
 
-        // calibrate
-        shk_table -> calibrate;
-        att_table -> calibrate;
-	spectra_table -> calibrate;
+        { rank = same; ac1_files; ac2_files; shk_files; fba_files; }
+        { rank = same; ac_level0; shk_level0; fba_level0; att_level0;}
 
-	calibrate -> calibrated_table;
-
-	
-
-//        { rank = same; ac1_files; ac2_files; shk_files; }
-//        { rank = same; acn_table; shk_table; spectra_table; calibrated_table;
-//		att_table;}
-//	{ rank = same; acn_importer; shk_importer; create_spectrum; calibrate; }
 }
