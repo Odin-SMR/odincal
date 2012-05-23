@@ -5,7 +5,7 @@ from os.path import join
 
 setup(
     name='odincal',
-    version='0.0.2',
+    version='0.0.4',
     description = 'Odin calibration project',
     long_description=open("README.txt").read() + "\n" +
     open(join("docs", "CHANGELOG.txt")).read(),
@@ -30,8 +30,9 @@ setup(
     author_email='joakim.moller@molflow.com',
     url='http://www.molflow.com/odincal',
     install_requires=[
+        'oops',
         'numpy',
-        'matplotlib',
+        'h5py',
         'PyGreSQL',
         'setuptools',
     ],
