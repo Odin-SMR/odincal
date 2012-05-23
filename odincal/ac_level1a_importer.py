@@ -2,7 +2,6 @@ import numpy
 import sys
 from math import erfc, erf, pi, sqrt, exp,cos
 from pg import DB
-import matplotlib.pyplot as plt
 import ctypes 
 
 class db(DB):
@@ -11,8 +10,7 @@ class db(DB):
 
 class Level1a:
     """A class to process level 0 files into level 1a."""
-    def __init__(self):
-        #self.con=con   
+    def __init__(self):  
         self.LAGSPERCHIP  =96
         self.MAXCHIPS     =8
         self.CLOCKFREQ    =224.0e6
@@ -51,28 +49,15 @@ class Level1a:
         data=qCorrect(cmean, data, self.nred)
         if data[0]==0:
             return 0,0
-        if 0:
-            f=[]
-            f.extend(data[1])
-            f.append(0.0)
-            f.extend(data[1][:0:-1,])
-            f=numpy.array(f)
-            #f=numpy.array([data[1],0,data[1][:0:-1,]])
-            f.shape=(2*self.nred,)
-            f=hanning(f,2*self.nred)
-            #f=numpy.fft.rfft(f,2*self.nred-1)
-            f=numpy.fft.fft(f)
-            #Reintroduce power into filter shapes.
-            #data=f[0:self.nred]*power
-        else:
-            libc=ctypes.cdll.LoadLibrary('libtest.so')
-            n0=ctypes.c_int(112)
-            c_float_p = ctypes.POINTER(ctypes.c_double)
-            data0 = numpy.array(data[1])
-            data_p = data0.ctypes.data_as(c_float_p)
-            libc.odinfft(data_p,n0)
-            #Reintroduce power into filter shapes.
-            data0=data0*power
+        #perform an fft of data
+        libc=ctypes.cdll.LoadLibrary('libtest.so')
+        n0=ctypes.c_int(112)
+        c_float_p = ctypes.POINTER(ctypes.c_double)
+        data0 = numpy.array(data[1])
+        data_p = data0.ctypes.data_as(c_float_p)
+        libc.odinfft(data_p,n0)
+        #Reintroduce power into filter shapes.
+        data0=data0*power
         return 1,data0
 
      
@@ -139,16 +124,6 @@ def ac_level1a_importer():
             'spectra'     : data,
             }
         con.insert('ac_level1a',temp)
-        if 0:#ind==0:
-            break
-    query=con.query('''select spectra from ac_level1a''')
-    result=query.getresult()
-    if 0:
-        for row in result:
-            plt.plot(numpy.ndarray(shape=(8*112,),
-                                   dtype='f8',
-                                   buffer=con.unescape_bytea(row[0])))
-        plt.show()
     con.close()
 
 

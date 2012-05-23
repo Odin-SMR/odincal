@@ -11,6 +11,10 @@ class db(DB):
 
 
 def level1b_exporter():
+    '''export data orbit data from database tables
+       and store data into hdf5 format'''
+    #example usage: bin/level1b_exporter 8575 AC1 odintestfile.hdf5
+
     orbit=argv[1] 
     backend=argv[2] 
     outfile=argv[3]
@@ -18,7 +22,7 @@ def level1b_exporter():
     con =db()
     #find min and max stws from orbit
     query=con.query('''select min(stw),max(stw)
-                       from attitude_level0 where
+                       from attitude_level1 where
                        floor(orbit)={0}'''.format(orbit))
     result=query.dictresult()
     if result[0]['max']==None:
@@ -31,9 +35,18 @@ def level1b_exporter():
     else:
         stwoff=0
     temp=[result[0]['min'],result[0]['max'],backend,stwoff]
-    query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
+    if backend=='AC1':
+        query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
                    from ac_level0 
-                   join getscans() on (getscans.stw+{3}=ac_level0.stw)
+                   natural join getscansac1() 
+                   where start>={0} and start<={1}
+                   and backend='{2}'
+                   '''.format(*temp))
+    
+    if backend=='AC2':
+        query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
+                   from ac_level0 
+                   natural join getscansac2() 
                    where start>={0} and start<={1}
                    and backend='{2}'
                    '''.format(*temp))
@@ -134,60 +147,55 @@ def level1b_exporter():
         ra2000.append(res['ra2000'])          
         dec2000.append(res['dec2000'])    
         vsource.append(res['vsource'])   
-        qtarget.append(res['qtarget'])     
-        qachieved.append(res['qachieved'])   
-        qerror.append(res['qerror'])      
-        gpspos.append(res['gpspos'])     
-        gpsvel.append(res['gpsvel'])    
-        sunpos.append(res['sunpos'])     
-        moonpos.append(res['moonpos'])    
+        qtarget.append(eval(res['qtarget'].replace('{','(').replace('}',')')))
+        qachieved.append(eval(res['qachieved'].replace('{','(').replace('}',')')))
+        qerror.append(eval(res['qerror'].replace('{','(').replace('}',')')))
+        gpspos.append(eval(res['gpspos'].replace('{','(').replace('}',')')))
+        gpsvel.append(eval(res['gpsvel'].replace('{','(').replace('}',')')))  
+        sunpos.append(eval(res['sunpos'].replace('{','(').replace('}',')')))    
+        moonpos.append(eval(res['moonpos'].replace('{','(').replace('}',')')))  
         sunzd.append(res['sunzd'])     
         vgeo.append(res['vgeo'])        
         vlsr.append(res['vlsr'])
-        ssb_fq.append(res['ssb_fq'])
+        ssb_fq.append(eval(res['ssb_fq'].replace('{','(').replace('}',')')))
         inttime.append(res['inttime'])
         frontend.append(res['frontend'])
         hotloada.append(res['hotloada'])
         lo.append(res['lo'])
-    g['SMR/STW']=stw
-    g['SMR/Backend']=backend
-    g['SMR/Level']=alevel
-    g['SMR/Orbit']=orbit
-    g['SMR/MJD']=mjd
-    g['SMR/LST']=lst
-    g['spectra']=spectra
-    g['SMR/IntMode']=intmode
-    g['SMR/Channels']=channels
-    g['SMR/SkyFreq']=skyfreq
-    g['SMR/LOFreq']=lofreq
-    g['SMR/RestFreq']=restfreq
-    g['SMR/MaxSuppression']=maxsuppression
-    g['SMR/Tsys']=tsys
-    g['SMR/Source']=sourcemode
-    g['SMR/EffTime']=efftime
-    g['SMR/SBpath']=sbpath
-    g['SMR/Latitude']=latitude    
-    g['SMR/Longitude']=longitude   
-    g['SMR/Altitude']=altitude      
-    g['SMR/SkyBeamHit']=skybeamhit    
-    g['SMR/RA2000']=ra2000            
-    g['SMR/Dec2000']=dec2000      
-    g['SMR/VSource']=vsource     
-    g['SMR/Qtarget']=qtarget
-    g['SMR/Qachieved']=qachieved     
-    g['SMR/Qerror']=qerror        
-    g['SMR/GPSpos']=gpspos       
-    g['SMR/GPSvel']=gpsvel      
-    g['SMR/SunPos']=sunpos       
-    g['SMR/MoonPos']=moonpos      
-    g['SMR/SunZD']=sunzd       
-    g['SMR/Vgeo']=vgeo          
-    g['SMR/Vlsr']=vlsr
-    g['SMR/FreqCal']=ssb_fq
-    g['SMR/IntTime']=inttime
-    g['SMR/Frontend']=frontend
-    g['SMR/Tcal']=hotloada
-
+    dtype1=[('Level', '>u2'), 
+            ('STW', '>u4'), ('MJD', '>f8'), ('Orbit', '>f8'), 
+            ('LST', '>f4'), ('Source', '|S32'),   
+            ('Frontend', '|S32'), ('Backend', '|S32'), 
+            ('SkyBeamHit', '>i2'), ('RA2000', '>f4'), ('Dec2000', '>f4'), 
+            ('VSource', '>f4'), ('Longitude', '>f4'), ('Latitude', '>f4'), 
+            ('Altitude', '>f4'),('Qtarget', '>f8', (4,)), 
+            ('Qachieved', '>f8', (4,)), ('Qerror', '>f8', (3,)), 
+            ('GPSpos', '>f8', (3,)), ('GPSvel', '>f8', (3,)), 
+            ('SunPos', '>f8', (3,)), ('MoonPos', '>f8', (3,)), 
+            ('SunZD', '>f4'), ('Vgeo', '>f4'), ('Vlsr', '>f4'), 
+            ('Tcal', '>f4'), ('Tsys', '>f4'), ('SBpath', '>f4'), 
+            ('LOFreq', '>f8'), ('SkyFreq', '>f8'), ('RestFreq', '>f8'), 
+            ('MaxSuppression', '>f8'), ('FreqCal', '>f8', (4,)), 
+            ('IntMode', '>i4'), ('IntTime', '>f4'), ('EffTime', '>f4'), 
+            ('Channels', '>i4'),]
+    dtype2=[('Array','>f8', (len(spectra[0]),))]  
+    dset1 = g.create_dataset("SMR", shape=(len(stw),1),dtype=dtype1)
+    dset2 = g.create_dataset("SPECTRUM",data=spectra)
+    for ind in range(len(stw)):
+        data=(alevel[ind],stw[ind],mjd[ind],orbit[ind],lst[ind],
+              sourcemode[ind],
+              frontend[ind],backend[ind],skybeamhit[ind],ra2000[ind],
+              dec2000[ind],vsource[ind],longitude[ind],latitude[ind],
+              altitude[ind],qtarget[ind],qachieved[ind],qerror[ind],
+              gpspos[ind],gpsvel[ind],
+              sunpos[ind],moonpos[ind],sunzd[ind],
+              vgeo[ind],vlsr[ind],hotloada[ind],
+              tsys[ind],sbpath[ind],lofreq[ind],
+              skyfreq[ind],restfreq[ind],
+              maxsuppression[ind],ssb_fq[ind],intmode[ind],
+              inttime[ind],efftime[ind],channels[ind])
+        dset1[ind]=data
+       
     g.close()
     con.close()
     
