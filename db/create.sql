@@ -170,12 +170,14 @@ create table shk_level1(
 );
 
 
-CREATE OR REPLACE FUNCTION public.getscans()
+CREATE OR REPLACE FUNCTION public.getscansac2()
  RETURNS SETOF scan
  LANGUAGE plpgsql
 AS $function$
 declare
-   spectrum_curs cursor for select * from fba_level0 order by stw;
+   spectrum_curs cursor for select fba_level0.stw,mech_type from fba_level0 
+   natural join ac_level0 
+   order by stw;
    res scan%rowtype;
    prev_mech fba_level0.mech_type%type;
    scanstart fba_level0.stw%type;
@@ -189,6 +191,34 @@ begin
       end if;
       res.start:=scanstart;
       res.stw:=r.stw;
+      prev_mech:=r.mech_type; 
+      return next res;
+   end loop;
+   return;
+end;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.getscansac1()
+ RETURNS SETOF scan
+ LANGUAGE plpgsql
+AS $function$
+declare
+   spectrum_curs cursor for select fba_level0.stw,mech_type from fba_level0 
+   join ac_level0 on (fba_level0.stw+1=ac_level0.stw)
+   order by stw;
+   res scan%rowtype;
+   prev_mech fba_level0.mech_type%type;
+   scanstart fba_level0.stw%type;
+begin
+   prev_mech:='SK1';
+   scanstart:=-2;
+   
+   for r in spectrum_curs loop
+      if r.mech_type='CAL' and prev_mech<>'CAL' then
+         scanstart:=r.stw;
+      end if;
+      res.start:=scanstart+1;
+      res.stw:=r.stw+1;
       prev_mech:=r.mech_type; 
       return next res;
    end loop;

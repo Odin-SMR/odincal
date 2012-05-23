@@ -392,39 +392,50 @@ Column & Type & Description \\ [0.5ex]
 \subsection{Importing data}
 \label{sec:import}
 Importing all data from level0 files into the level0 tables are done 
-by the following commands:\\
-\\
-\$ bin/ac2db /home/bengt/Downloads/02f8deef.ac1\\
-\$ bin/ac2db /home/bengt/Downloads/02f8deef.ac2\\
-\$ bin/att2db /home/bengt/Downloads/02f8a74e.att\\
-\$ bin/shk2db /home/bengt/Downloads/02f8def1.shk\\
-\$ bin/fba2db /home/bengt/Downloads/02f8def0.fba\\
-
+by the following commands:
+\begin{verbatim}
+$bin/ac2db /home/bengt/Downloads/02f8deef.ac1
+$bin/ac2db /home/bengt/Downloads/02f8deef.ac2
+$bin/att2db /home/bengt/Downloads/02f8a74e.att
+$bin/shk2db /home/bengt/Downloads/02f8def1.shk
+$bin/fba2db /home/bengt/Downloads/02f8def0.fba
+\end{verbatim}
 Importing data into the three first level1 tables are done 
-with the following commands:\\
-\\
-\$ bin/shk\underline{ }level1\underline{ }importer\\
-\$ bin/att\underline{ }level1\underline{ }importer\\
-\$ bin/ac\underline{ }level1a\underline{ }importer\\
-\\
+with the following commands:
+\begin{verbatim}
+$bin/shk_level1_importer
+$bin/att_level1_importer
+$bin/ac_level1a_importer
+\end{verbatim}
 All data that is available will be imported 
-into the different tables. \\
+into the different tables. 
 
-The calibration of ac\underline{ }level1a data is then done by:\\
-\$ bin/level1b\underline{ }importer orbit backend\\
-e.g.\\
-\$ bin/level1b\underline{ }importer 8575 AC1\\
-\\  
+The calibration of ac\underline{ }level1a data is then done by:
+\begin{verbatim}
+$bin/level1b_importer orbit backend
+e.g.
+$bin/level1b_importer 8575 AC1
+\end{verbatim}
 Resulting data will be inserted in table ac\underline{ }level1b 
 (calibrated spectra) and
 ac\underline{ }cal\underline{ }level1b (tsys and ssb spectra). 
-The calibration procedure is performed based on data from
-one orbit, or more strictly from all scans that starts in an orbit.
+The old calibration procedure is performed based on data from
+one orbit, but ac\underline{ }cal\underline{ }level1b
+uses data from all scans that starts in an orbit.
+This means that there is a difference in which data
+that is considered in both the start and the end of the orbit
+(this is very easy to change). 
 level1b\underline{ }importer assumes that all data from the orbit
 is imported into the database, but nothing is clearly done if not
 enough data is found.
-
-
+ 
+Extracting calibrated spectrum and data (in a similiar structure as 
+the official level1b files)
+from the database into a hdf5 format
+file can be done by:
+\begin{verbatim}
+$bin/level1b_exporter orbit backend outputfile.hdf5
+\end{verbatim}
 
 \section{Calibration procedure}
 \label{sec:cal}
@@ -511,7 +522,8 @@ This is done by:
 T^{'}_{A,i}=\frac{(c^{A}_{i}-c^{S}_{i})<T_{sys,i}>}{c^{S}_{i}}+T_{S},
 \label{eq:tp}
 \end{equation}
-where \(c^{A}_{i}\) is data from channel i of the target signal. 
+where \(c^{A}_{i}\) is data from channel i of the target signal,
+and \(c^{S}_{i}\) is interpolated to the stw of the target signal.
 
 \item Determination of baffle contribution\\
 %Consider all spectra that are 10 km below or less of the maximum 
@@ -542,19 +554,23 @@ This is consistent with Equations 4,5, and 6 in \cite{notes}.
 \subsection{A short comparison} 
 Figure~\ref{fig:odin1} shows a comparison with a randomly 
 selected intensity calibrated spectrum of the official
-level1b product. Differences are below 0.06 K.
-One possible reason for the difference is that in order
-for the match to be perfect, exactly the same calibration spectra 
-from the orbit must be used,
-since the actual Tsys spectrum used is the mean of all
-Tsys spectra from the orbit. If this is the case is unclear.
-    
+level1b product. Differences are below 0.06 K,
+which we judged to be sufficiently small.
+For the match to be perfect, exactly the same data 
+from the orbit must be used, since the actual Tsys spectrum 
+used is the mean of all Tsys spectra from the orbit,
+and the baffle contribution is calulated from the median
+of the median of all high altitude spectra. 
+Therefore in Figure~\ref{fig:odin1}
+we have tried to do so by considering all data from the
+orbit and not all scans that starts in the orbit.
 
 \begin{figure}[!t]
 \centering
 \includegraphics[scale=0.7]{spectrum.png}
 \caption{Upper panel: a level1b spectrum from AC1,STW=797932325,
-STRAT FM=2 created by the package described in this document.
+STRAT FM=2 created by the package described in this document,
+with a small modification, that is described in text.
 Lower panel: difference from the official level1b product
 (spectrum found in the file OB1B217F.HDF) }
 \label{fig:odin1}
@@ -564,7 +580,8 @@ Lower panel: difference from the official level1b product
 
 \section{Further development}
 level1b\underline{ }importer, which steers the level1b
-calibration, has been written to process data from one orbit.
+calibration, has been written to process data from scans
+that starts in the target orbit.
 The main function of this script starts basically by some
 SQL-queries to find out the start and end stw for the target orbit.
 With this information it is then easy to get all required
@@ -572,8 +589,22 @@ data from the database tables.
 This means that to move away from the orbit based processing
 the main thing to change is the first queries.
 
-
-
+The intensity calibration is performed by a python class
+named Level1b\underline{ }cal that can
+be found in the file level1b\underline{ }importer.py.
+This class has functions as for example:\\
+-- calibrate, that controls the calibration\\
+-- cleanref, that removes spurious cold sky spectrum\\
+-- cleancal, that removes spurious hot load spectrum\\
+-- gain, that calulates tsys spectrum\\
+-- medTsys, that returns a mean Tsys spectrum of all acceptable
+Tsys spectrum\\ 
+calibrate1, that transform signal spectra into an antenna temperature
+scale.
+ 
+Laboration with the calibration scheme should not be extremely
+difficult.
+  
 \section{Required packages and installation}
 
 \section{Appendix}
@@ -588,21 +619,27 @@ Thus, if sig\underline{ }type is 'REF' one can join the two
 tables to find out the type of 'REF' signal.
 For example by the sql queries :\\
 For ac2 data where the stw match is one to one\\
-\\
-select stw, sig\underline{ }type, mech\underline{ }type from 
-ac\underline{ }level0 natural join fba\underline{ }level0 
-where sig\underline{ }type='REF' and backend='AC2';\\
-\\
-or for ac1 data where the stw is one stw unit ahead:\\
-\\
-select ac\underline{ }level0.stw, sig\underline{ }type,
-mech\underline{ }type from 
-ac\underline{ }level0 join fba\underline{ }level0 on\\ 
-(fba\underline{ }level0.stw+1=ac\underline{ }level0.stw) where 
-sig\underline{ }type='REF' and backend='AC1';\\
-\\ 
+\begin{verbatim}
+select stw, sig_type, mech_type from 
+ac_level0 natural join fba_level0 
+where sig_type='REF' and backend='AC2';
+\end{verbatim}
+or for ac1 data where the stw is one stw unit ahead:
+\begin{verbatim}
+select ac_level0.stw, sig_type,
+mech_type from 
+ac_level0 join fba_level0 on 
+(fba_level0.stw+1=ac_level0.stw) where 
+sig_type='REF' and backend='AC1';
+\end{verbatim}
+
 \subsubsection*{Example how to extract column data that has Type bytea
 or integer[] using python}
+To extract data from database tables that have type bytea one must
+know the shape and datatype of the data. This information
+can be found in the tables in this document. Here is an example
+to extract data from the ac\underline{ }level0: 
+
 \begin{verbatim}
 import numpy
 from pg import DB
@@ -616,10 +653,73 @@ result=query.dictresult()
 cc=numpy.ndarray(shape=(8,96),dtype='float64',
                  buffer=con.unescape_bytea(result[0]['cc']))
 ssb_fq=eval(result[0]['ssb_fq'].replace('{','(').replace('}',')'))
-
 \end{verbatim}
+\clearpage
+\newpage
+\subsubsection*{Example how to identify scans}
+getscansac1 and getscansac2 are database functions that has been 
+created in order to find out scans.
+The functions search for data in ac\underline{ }level0
+and fba\underline{ }level0 and return stw and start of ac data, 
+where start is the stw of the latest calibration measurement. 
+The following SQL-queries show how these functions can be used,
+and the example also clarifies the meaning of a scan: 
+\begin{verbatim}
+For AC2
 
+select ac_level0.stw,start,backend,sig_type,mech_type,altitude 
+from ac_level0 
+natural join fba_level0
+natural left join attitude_level1
+natural join getscansac2() 
+where ac_level0.backend='AC2' and start>-1
+order by ac_level0.stw;
 
+For AC1
+
+select ac_level0.stw,start,backend,sig_type,mech_type,altitude 
+from ac_level0 
+natural left join attitude_level1
+natural join getscansac1() 
+join fba_level0 on (fba_level0.stw+1=ac_level0.stw)
+where ac_level0.backend='AC1' and start>-1
+order by ac_level0.stw;
+\end{verbatim}
+and can result in someting like:
+\begin{verbatim}
+    stw     |   start    | backend | sig_type | mech_type | altitude 
+------------+------------+---------+----------+-----------+----------
+  797607149 |  797607149 | AC2     | REF      | CAL       |         
+  797607213 |  797607149 | AC2     | SIG      | CAL       |  66394.2
+  797607277 |  797607149 | AC2     | REF      | CAL       |         
+  797607341 |  797607149 | AC2     | SIG      | SK2       |  60728.1
+  797607405 |  797607149 | AC2     | REF      | SK1       |         
+  797607469 |  797607149 | AC2     | SIG      | SK1       |  54946.1
+  797607533 |  797607149 | AC2     | REF      | SK1       |         
+  797607596 |  797607149 | AC2     | SIG      | SK1       |  49403.8
+                                     .
+                                     .
+                                     .
+
+  797608300 |  797607149 | AC2     | SIG      | SK1       |  16571.3
+  797608332 |  797607149 | AC2     | REF      | SK1       |         
+  797608364 |  797607149 | AC2     | SIG      | SK1       |  13635.4
+  797608396 |  797607149 | AC2     | REF      | SK1       |         
+  797608428 |  797607149 | AC2     | SIG      | SK1       |  10608.7
+  797608460 |  797607149 | AC2     | REF      | SK1       |         
+  797608492 |  797608492 | AC2     | SIG      | CAL       |  8020.76
+  797608524 |  797608492 | AC2     | REF      | CAL       |         
+  797608556 |  797608492 | AC2     | SIG      | CAL       |  10532.8
+  797608588 |  797608492 | AC2     | REF      | CAL       |         
+\end{verbatim}
+A scan is here defined as measurements between two hot load (CAL)
+measurements. 
+These measurements are performed when the scanning turns,
+which can be seen in the altitude column.
+A scan is identified in the start column, which is the stw
+of the hot load measurement in the start of the scan. 
+In this examlpe AC2 data with stw 797607149 to 797608460
+belongs to scan 797607149. 
 \clearpage
 \newpage
 
