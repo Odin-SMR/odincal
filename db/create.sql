@@ -25,7 +25,7 @@ create type mech as enum ('REF','SK1','CAL','SK2');
 create type scan as (start bigint, stw bigint);
 create type shk_type as enum ('LO495','LO549','LO555','LO572','SSB495','SSB549',
 'SSB555','SSB572','mixC495','mixC549','mixC555','mixC572','imageloadB',
-'hotloadA','hotloadB')
+'hotloadA','hotloadB');
 create type sourcemode as enum ('STRAT','ODD_H','ODD_N','WATER','SUMMER',
 'DYNAM');
 create type spectype as enum ('SIG','REF','CAL','CMB','DRK','SK1','SK2','SPE',
