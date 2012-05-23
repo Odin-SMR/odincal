@@ -2,8 +2,6 @@ import numpy
 import copy
 from oops import odin
 import pg
-import matplotlib.pyplot as plt
-import testorbit
 from pg import DB
 from sys import stderr,stdout,stdin,argv,exit
 
@@ -21,8 +19,8 @@ class Level1b_cal:
         VERSION = 0x0007
         (sig,ref,cal) = self.sortspec(self.spectra)
         self.checkaltitude(sig)
-        #if len(sig) == 0:
-        #    return None
+        if len(sig) == 0:
+            return None,VERSION
         #ns = len(sig)/len(scans)
         #if ns < 5:
         #    return None
@@ -43,13 +41,9 @@ class Level1b_cal:
         maxalt = 0.0
         iscan = 0
         nspec = 0
-        for s in sig:
-            if 1:  #s.stw > scan[0]:
-                gain = copy.copy(s)
-                gain.type = 'CAL'
-                #gain.channels = C.channels
-                gain.data = C.data
-                break
+        gain = copy.copy(sig[0])
+        gain.type = 'CAL'
+        gain.data = C.data
         calibrated.append(gain)
         ssb = copy.copy(gain)
         ssb.type = 'SSB'
@@ -57,8 +51,6 @@ class Level1b_cal:
         calibrated.append(ssb)  
         for t in sig:
             s = copy.copy(t)
-            #if s.stw < scan[0] or s.stw > scan[1]:
-            #    continue
             stw = float(s.stw)
             R = ref[0]
             R.data = self.interpolate(rstw, rmat, stw)
@@ -75,7 +67,6 @@ class Level1b_cal:
                 continue
             if s.altitude > maxalt:
                 maxalt = s.altitude
-            #s=baffle(s)
             calibrated.append(s)
         ########## determination of baffle contribution ##########
         ### Tspill = zeros(8, Float)
@@ -132,30 +123,7 @@ class Level1b_cal:
                 s.data = numpy.choose(numpy.equal(s.data,0.0), 
                                       ((s.data-Tspill)/eta, 0.0))
                 s.efftime = s.inttime*eff
-                #f=self.frequency(s)
-                #f1=f.argsort()
-                #freq=f[f1]
-                #data=s.data[f1]
-                #f2=data.nonzero()
-                #freq=freq[f2]
-                #data=data[f2]
-                #if s.altitude>0 and s.altitude<=15e3: 
-                #    plt.plot(s.data,'g-')
-                #    #plt.plot(freq,data,'g-')
-                #if s.altitude>15e3 and s.altitude<=20e3: 
-                #    plt.plot(s.data,'r-')
-                #    #plt.plot(freq,data,'r-')
-                #if s.altitude>20e3 and s.altitude<=30e3: 
-                #    plt.plot(s.data,'b-')
-                #    #plt.plot(freq,data,'b-')
-                #if s.altitude>30e3 and s.altitude<=60e3: 
-                #    plt.plot(s.data,'y-')
-                #    #plt.plot(freq,data,'y-')
-                #if s.altitude>60e3: 
-                #    plt.plot(s.data,'k-')
-                    #plt.plot(freq,data,'k-')
-                #plt.show()
-
+               
         return calibrated,VERSION
    
     def cleanref(self, ref):
@@ -755,9 +723,17 @@ def level1b_importer():
     else:
         stwoff=0
     temp=[result1[0]['min'],result1[0]['max'],backend,stwoff]
-    query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
+    if backend=='AC1':
+        query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
                    from ac_level0 
-                   join getscans() on (getscans.stw+{3}=ac_level0.stw)
+                   natural join getscansac1() 
+                   where start>={0} and start<={1}
+                   and backend='{2}'
+                   '''.format(*temp))
+    if backend=='AC2':
+        query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
+                   from ac_level0 
+                   natural join getscansac2() 
                    where start>={0} and start<={1}
                    and backend='{2}'
                    '''.format(*temp))
