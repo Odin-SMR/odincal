@@ -2,6 +2,7 @@ import numpy
 import sys
 from math import erfc, erf, pi, sqrt, exp,cos
 from pg import DB
+from pkg_resources import resource_filename
 import ctypes 
 
 class db(DB):
@@ -50,7 +51,8 @@ class Level1a:
         if data[0]==0:
             return 0,0
         #perform an fft of data
-        libc=ctypes.cdll.LoadLibrary('libtest.so')
+        librarypath=resource_filename('oops','libfft.so')
+        libc=ctypes.CDLL(librarypath,mode=3)
         n0=ctypes.c_int(112)
         c_float_p = ctypes.POINTER(ctypes.c_double)
         data0 = numpy.array(data[1])
