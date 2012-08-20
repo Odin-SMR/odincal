@@ -607,6 +607,62 @@ difficult.
   
 \section{Required packages and installation}
 
+\subsection{Postgresql preparation}
+
+Make sure the following packages is installed in your system.
+\begin{verbatim}  
+  $> sudo apt-get install postgresql python-setuptools python-dev
+  $> sudo apt-get install python-zc.buildout python-numpy libhdf5-serial-dev
+  $> sudo apt-get install build-essential postgresql-server-dev-9.1
+\end{verbatim}
+
+Create a database a database called odin owned by your user. (Tip! use your system username for easier access.)
+  
+\begin{verbatim}  
+  $> sudo -u postgres psql
+  psql> create user <your_user_name> login;
+  psql> create database odin owner <your_user_name>;
+  psql> \q
+\end{verbatim}
+
+Install the datamodel.
+
+\begin{verbatim}  
+  $> psql -f create.sql
+\end{verbatim}
+
+\subsection{Installation of odincal}
+
+The file buildout.cfg pulls all required packages into a local installation if the required packages with the correct version numbers are installed on the system buildout will use the packages from the system - if they don't exist buildout will build them.
+
+\begin{verbatim}
+[buildout]
+parts = 
+	odincal
+        ipython
+
+find-links = http://molflow.com/eggs/
+[odincal]
+recipe = zc.recipe.egg
+interpreter = odinpy
+eggs = 	
+	numpy==1.5.1
+	h5py==2.0.0
+        odincal
+        oops
+[ipython]
+recipe = zc.recipe.egg
+eggs =
+    ipython
+    ${odincal:eggs}
+scripts = ipython
+\end{verbatim}
+
+Create a new directory and copy the  buildout.cfg file to it. Run the command buildout2.7 from that directory
+\begin{verbatim}
+  buildout2.7
+\end{verbatim}
+
 \section{Appendix}
 \subsubsection*{Matching ac\underline{ }level0 with fba\underline{ }level0}
  One column in the ac\underline{ }level0
