@@ -1,0 +1,41 @@
+import attitude
+import odin
+import numpy
+
+
+
+def djl(year, mon, day, hour, min, secs):
+        dn = 367L*year - 7*(year+(mon+9)/12)/4 \
+             - 3*((year+(mon-9)/7)/100+1)/4 + 275*mon/9 \
+             + day + 1721029L;
+        jd = float(dn)-0.5+(hour+(min+secs/60.0)/60.0)/24.0
+        return jd
+
+
+attfile=[]
+attfile.append('/home/bengt/Downloads/149a3d2a.att')
+a=attitude.AttitudeParser(attfile)
+#t=a.table['149B75D6D']
+(year,mon,day,hour,min,secs,stw,orbit,qt,qa,qe,gps,acs) = a.table['149B75D6D']
+JD=djl(year,mon,day,hour,min,secs)
+
+cols = 2+2*4+3+6+1
+row=1
+lookup = numpy.zeros(shape=(row,cols))
+row=0
+lookup[row, 0: 2] = numpy.array((JD, orbit))
+lookup[row, 2: 6] = numpy.array(qt)
+lookup[row, 6:10] = numpy.array(qa)
+lookup[row,10:13] = numpy.array(qe)
+lookup[row,13:19] = numpy.array(gps)
+lookup[row,19]    = acs
+att=lookup
+t = (att[row,0], long(stw), att[row,1],tuple(att[row,2:6]), 
+     tuple(att[row,6:10]),tuple(att[row,10:13]), 
+     tuple(att[row,13:19]), att[row,19])
+s=odin.Spectrum()
+s.stw=long(stw)
+s.Attitude(t)
+
+#(year,mon,day,hour,min,sec,stw,orbit,qt,qa,qe,gps,acs)
+
