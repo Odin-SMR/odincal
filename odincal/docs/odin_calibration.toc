@@ -1,0 +1,15 @@
+\select@language {english}
+\contentsline {section}{\numberline {1}Overview}{1}
+\contentsline {section}{\numberline {2}The Database}{2}
+\contentsline {subsection}{\numberline {2.1}Overview}{2}
+\contentsline {subsection}{\numberline {2.2}Level0 tables}{2}
+\contentsline {subsection}{\numberline {2.3}Level1 and level1a tables}{6}
+\contentsline {subsection}{\numberline {2.4}Level1b tables}{8}
+\contentsline {subsection}{\numberline {2.5}Importing data}{10}
+\contentsline {section}{\numberline {3}Calibration procedure}{11}
+\contentsline {subsection}{\numberline {3.1}ac\relax $\@@underline {\hbox { }}\mathsurround \z@ $\relax level0 to ac\relax $\@@underline {\hbox { }}\mathsurround \z@ $\relax level1a}{11}
+\contentsline {subsection}{\numberline {3.2}ac\relax $\@@underline {\hbox { }}\mathsurround \z@ $\relax level1a to ac\relax $\@@underline {\hbox { }}\mathsurround \z@ $\relax level1b}{11}
+\contentsline {subsection}{\numberline {3.3}A short comparison}{13}
+\contentsline {section}{\numberline {4}Further development}{14}
+\contentsline {section}{\numberline {5}Required packages and installation}{14}
+\contentsline {section}{\numberline {6}Appendix}{14}

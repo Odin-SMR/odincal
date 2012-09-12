@@ -1,0 +1,43 @@
+This file contains any messages produced by compilers while
+running configure, to aid debugging if configure makes a mistake.
+
+configure:532: checking for uname
+configure:569: checking for gcc
+configure:682: checking whether the C compiler (gcc -fPIC ) works
+configure:698: gcc -o conftest -fPIC   conftest.c  1>&5
+configure:724: checking whether the C compiler (gcc -fPIC ) is a cross-compiler
+configure:729: checking whether we are using GNU C
+configure:738: gcc -E conftest.c
+configure:757: checking whether gcc accepts -g
+configure:791: checking for ranlib
+configure:849: checking for a BSD compatible install
+configure:905: checking for tar
+configure:940: checking for gzip
+configure:974: checking whether byte ordering is bigendian
+configure:992: gcc -c -fPIC  conftest.c 1>&5
+configure:1007: gcc -c -fPIC  conftest.c 1>&5
+configure: In function 'main':
+configure:1002:2: error: unknown type name 'not'
+configure:1002:10: error: expected '=', ',', ';', 'asm' or '__attribute__' before 'endian'
+configure: failed program was:
+#line 996 "configure"
+#include "confdefs.h"
+#include <sys/types.h>
+#include <sys/param.h>
+int main() {
+
+#if BYTE_ORDER != BIG_ENDIAN
+ not big endian
+#endif
+; return 0; }
+configure:1065: checking how to run the C preprocessor
+configure:1086: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1148: checking for stdlib.h
+configure:1158: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1148: checking for string.h
+configure:1158: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1148: checking for math.h
+configure:1158: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1148: checking for limits.h
+configure:1158: gcc -E  conftest.c >/dev/null 2>conftest.out
+configure:1193: gcc -c -fPIC  conftest.c 1>&5
