@@ -3,7 +3,7 @@ import sys
 from math import erfc, erf, pi, sqrt, exp,cos
 from pg import DB
 import ctypes 
-
+from pkg_resources import resource_filename 
 class db(DB):
     def __init__(self):
         DB.__init__(self,dbname='odin')
