@@ -12,17 +12,20 @@ class db(DB):
         DB.__init__(self,dbname='odin')
 
 
-class Level1b_cal:
+class Level1b_cal():
     """A class that can perform intensity calibration of level 1a spectra"""
-    def __init__(self,spectra):
+    def __init__(self,spectra,calstw,con):
         self.spectra=spectra
+        self.calstw=calstw
+        self.con=con
     def calibrate(self):
         """Do intensity calibration for all receivers."""
-        VERSION = 0x0007
+        VERSION = 0x0009
         (sig,ref,cal) = self.sortspec(self.spectra)
+        print len(ref)
+        print len(cal)
         calb=copy.deepcopy(cal)#####
-        calc=copy.deepcopy(cal)#####
-        refc=copy.deepcopy(ref)#####
+        refb=copy.deepcopy(ref)#####
         self.checkaltitude(sig)
         if len(sig) == 0:
             return None,VERSION
@@ -30,93 +33,210 @@ class Level1b_cal:
         #if ns < 5:
         #    return None
         if len(ref) > 0:
+            refb = self.cleanref(refb)
+            print len(ref)
+        if len(ref) == 0:
+            odin.Warn("no reference spectra found") 
+            return None,VERSION
+        if len(cal) > 0:
+            #calb = self.cleancal(calb, refb)
+            print len(cal)
+        if len(cal) == 0:
+            odin.Warn("no calibration spectra found")
+            return None,VERSION
+        print 'skyfreq',ref[0].skyfreq/1e9
+        #some tests
+ 
+        #plot reference data (sky beam)
+        refstw=[]
+        refdata=[]
+        refzerolag=[]
+        refskybeamhit=[]
+        refhotload=[]
+        reftpll=[]
+        refaltitude=[]
+        refinttime=[]
+        refcurrent=[]
+        refssb_att=[]
+        bl=len(ref[0].data)/112
+        for refspec in refb:
+            mref=[]
+            for bands in range(bl):
+                mref.append(numpy.mean(refspec.data[bands*112:(bands+1)*112]))
+            refdata.append(mref)
+            refstw.append(refspec.stw)
+            refzerolag.append(refspec.zerolag)
+            refskybeamhit.append(refspec.skybeamhit)
+            refhotload.append(refspec.tcal)
+            reftpll.append(refspec.Tpll)
+            refaltitude.append(refspec.altitude)
+            refinttime.append(refspec.inttime)
+            refcurrent.append(refspec.current)
+            refssb_att.append(refspec.ssb_att)
+        refdata=numpy.array(refdata)
+        refstw=numpy.array(refstw)
+        refzerolag=numpy.array(refzerolag)
+        refskybeamhit=numpy.array(refskybeamhit)
+        refhotload=numpy.array(refhotload)
+        reftpll=numpy.array(reftpll)
+        refaltitude=numpy.array(refaltitude)
+        refinttime=numpy.array(refinttime)
+        refcurrent=numpy.array(refcurrent)
+        refssb_att=numpy.array(refssb_att)
+        
+        calstw=[]
+        caldata=[]
+        calzerolag=[]
+        calskybeamhit=[]
+        calhotload=[]
+        caltpll=[]
+        calaltitude=[]
+        calinttime=[]
+        calcurrent=[]
+        calssb_att=[]
+        bl=len(ref[0].data)/112
+        for calspec in calb:
+            mref=[]
+            for bands in range(bl):
+                mref.append(numpy.mean(calspec.data[bands*112:(bands+1)*112]))
+            caldata.append(mref)
+            calstw.append(calspec.stw)
+            calzerolag.append(calspec.zerolag)
+            calskybeamhit.append(calspec.skybeamhit)
+            calhotload.append(calspec.tcal)
+            caltpll.append(calspec.Tpll)
+            calaltitude.append(calspec.altitude)
+            calinttime.append(calspec.inttime)
+            calcurrent.append(calspec.current)
+            calssb_att.append(calspec.ssb_att)
+        caldata=numpy.array(caldata)
+        calstw=numpy.array(calstw)
+        calzerolag=numpy.array(calzerolag)
+        calskybeamhit=numpy.array(calskybeamhit)
+        calhotload=numpy.array(calhotload)
+        caltpll=numpy.array(caltpll)
+        calaltitude=numpy.array(calaltitude)
+        calinttime=numpy.array(calinttime)
+        calcurrent=numpy.array(calcurrent)
+        calssb_att=numpy.array(calssb_att)
+        doplot=1
+        if doplot:
+            for ind in range(bl/2):
+                #pyplt.subplot(4,2,ind)
+                pyplt.figure(ind,(20,10))
+                pyplt.subplot(2,2,1)
+                pyplt.plot(refstw,refdata[:,ind*2],'r*')
+                pyplt.plot(calstw,caldata[:,ind*2],'b*')
+                pyplt.title('ac2 band '+str(ind*2))
+                pyplt.ylabel('ref. and cal. mean of band level1a')
+                pyplt.subplot(2,2,2)
+                pyplt.plot(refstw,refdata[:,ind*2+1],'r*')
+                pyplt.plot(calstw,caldata[:,ind*2+1],'b*')
+                pyplt.title('ac1 band '+str(ind*2+1))
+                pyplt.subplot(2,2,3)
+                pyplt.plot(refstw,refzerolag[:,ind*2],'r')
+                pyplt.plot(calstw,calzerolag[:,ind*2],'b')
+                pyplt.ylabel('ref. and cal. zerolag')
+                pyplt.xlabel('stw')
+                pyplt.subplot(2,2,4)
+                pyplt.plot(refstw,refzerolag[:,ind*2+1],'r')
+                pyplt.plot(calstw,calzerolag[:,ind*2+1],'b')
+                pyplt.xlabel('stw')
+                
+                if ind==1:
+                    pyplt.figure(5,(20,10))
+                    pyplt.subplot(3,2,3)
+                    pyplt.plot(refstw,refskybeamhit)
+                    pyplt.ylabel('skybeamhit')
+                    pyplt.subplot(3,2,4)
+                    pyplt.plot(refstw,refinttime)
+                    pyplt.ylabel('inttime')
+                    pyplt.subplot(3,2,1)
+                    pyplt.plot(refstw,refhotload)
+                    pyplt.ylabel('hotload-a')
+                    pyplt.subplot(3,2,2)
+                    pyplt.plot(refstw,reftpll)
+                    pyplt.ylabel('imageload-b')
+                    pyplt.subplot(3,2,5)
+                    pyplt.plot(refstw,refaltitude)
+                    pyplt.xlabel('stw')
+                    pyplt.ylabel('altitude')
+                    pyplt.subplot(3,2,6)
+                    pyplt.plot(refstw,refssb_att)
+                    pyplt.xlabel('stw')
+                    pyplt.ylabel('ssb_att')
+        pyplt.show()        
+        if len(sig) == 0:
+            return None,VERSION
+        #ns = len(sig)/len(scans)
+        #if ns < 5:
+        #    return None
+        if len(ref) > 0:
             ref = self.cleanref(ref)
+            print len(ref)
         if len(ref) == 0:
             odin.Warn("no reference spectra found") 
             return None,VERSION
         if len(cal) > 0:
             cal = self.cleancal(cal, ref)
+            print len(cal)
         if len(cal) == 0:
             odin.Warn("no calibration spectra found")
             return None,VERSION
+        print 'skyfreq',ref[0].skyfreq/1e9
         #some tests
-        meanref=[]
-        stwref=[]
-        meancal=[]
-        stwcal=[]
-        meanrefc=[]
-        stwrefc=[]
-        meancalc=[]
-        stwcalc=[]
-        meansig=[]
-        stwsig=[]
-        ss=45
-        for row in sig:
-            mref=[]
-            for bands in range(8):
-                #mref.append(numpy.mean(row.data[bands*112:(bands+1)*112]))
-                mref.append(row.data[bands*112+ss])
-            meansig.append(mref)
-            stwsig.append(row.stw)
-        for row in refc:
-            mref=[]
-            for bands in range(8):
-                #mref.append(numpy.mean(row.data[bands*112:(bands+1)*112]))
-                mref.append(row.data[bands*112+ss])
-            meanrefc.append(mref)
-            stwrefc.append(row.stw)
         
-        for row in calc:
+        calstw=[]
+        caldata=[]
+        for calspec in cal:
             mref=[]
-            for bands in range(8):
-                #mref.append(numpy.mean(row.data[bands*112:(bands+1)*112]))
-                mref.append(row.data[bands*112+ss])
-            meancalc.append(mref)
-            stwcalc.append(row.stw)
-
-        for row in ref:
-            mref=[]
-            for bands in range(8):
-                #mref.append(numpy.mean(row.data[bands*112:(bands+1)*112]))
-                mref.append(row.data[bands*112+ss])
-            meanref.append(mref)
-            stwref.append(row.stw)
-        for row in cal:
+            for bands in range(bl):
+                mref.append(numpy.mean(calspec.data[bands*112:(bands+1)*112]))
+            caldata.append(mref)
+            calstw.append(calspec.stw)
+        caldata=numpy.array(caldata)
+        calstw=numpy.array(calstw)
+        query=self.con.query('''select tspill,spectra,channels,stw 
+                    from ac_cal_level1b where 
+                    version=8 and backend='AC2' and 
+                    spectype='CAL' 
+                    order by stw''')
+        result=query.dictresult()
+        tspillo=[]
+        tstw=[]
+        cspec=[]
+        for row in result:
+            tspillo.append(row['tspill'])
+            tstw.append(row['stw'])
+            cs=numpy.ndarray(shape=(row['channels'],),
+                     dtype='float64',buffer=self.con.unescape_bytea(
+                     row['spectra']))
             mcal=[]
-            for inda,cala in enumerate(calb):
-                if cala.stw==row.stw:
-                    indb=inda
-                    for bands in range(8):
-                        #mcal.append(numpy.mean(calb[indb].data[bands*112:(bands+1)*112]))
-                        mcal.append(calb[indb].data[bands*112+ss])
-                    meancal.append(mcal)
-                    stwcal.append(row.stw)
-         
-        meanref=numpy.array(meanref)
-        meancal=numpy.array(meancal)
-        meanrefc=numpy.array(meanrefc)
-        meancalc=numpy.array(meancalc)
-        meansig=numpy.array(meansig)
-
-        for band in range(8):
-            print numpy.std(meancalc[:,band])
-            pyplt.plot(stwsig,meansig[:,band],'om')
-            pyplt.plot(stwref,meanref[:,band],'-b')
-            pyplt.plot(stwcal,meancal[:,band],'-or')
-            #pyplt.plot(stwrefc,meanrefc[:,band],'-c')
-            #pyplt.plot(stwcalc,meancalc[:,band],'-*k')
-            #pyplt.plot(stwref,meanref[:,band],'-b')
-            #pyplt.plot(stwcal,meancal[:,band],'-or')
-            pyplt.legend(['SIG','REF','CAL','fREF','fCAL'])
-            pyplt.xlabel('STW')
-            pyplt.ylabel('mean of band '+str(band)+' level1a')
-            #pyplt.title('orbit='+orbit+', backend='+backend)
-            #pyplt.savefig('fig'+str(band)+'.eps',format='eps')
-            pyplt.show()
-            #cl=9.9;cs=9.1;ca=9.4;ts=2;tl=300;ta=(ca-cs)/(cl-cs)*(tl-ts)
-            #ta=(ca-cs)/cs*3000
-        #end of test
+            for bands in range(bl):
+                mcal.append(numpy.mean(cs[bands*112:(bands+1)*112]))
+            cspec.append(mcal)
+        tstw=numpy.array(tstw)
+        tspillo=numpy.array(tspillo)
+        cspec=numpy.array(cspec)
         C = self.medTsys(cal)
+        if doplot:
+            pyplt.figure(9,(20,10))
+            for ind in range(bl):
+                if ind==0 or ind==4:
+                    pyplt.figure(9+ind,(20,10))
+                if ind<4:
+                    pyplt.subplot(2,2,ind+1)
+                else:
+                    pyplt.subplot(2,2,ind-3)
+                #pyplt.figure(ind+8)
+                pyplt.plot(calstw,caldata[:,ind],'b*-')
+                pyplt.plot(tstw,cspec[:,ind],'g*')
+                pyplt.plot(calstw[0],
+                           numpy.mean(C.data[ind*112:(ind+1)*112]),'ro')
+                pyplt.title('ac2 band '+str(ind))
+                pyplt.xlabel('stw')
+                pyplt.ylabel('Tsys')
+                pyplt.legend(['single','+-45 min'])
         nref = len(ref)
         (rstw,rmat) = self.matrix(ref)
         calibrated = []
@@ -126,6 +246,8 @@ class Level1b_cal:
         gain = copy.copy(sig[0])
         gain.type = 'CAL'
         gain.data = C.data
+        if self.calstw!=0:
+            gain.stw=self.calstw
         calibrated.append(gain)
         ssb = copy.copy(gain)
         ssb.type = 'SSB'
@@ -153,13 +275,24 @@ class Level1b_cal:
         ########## determination of baffle contribution ##########
         ### Tspill = zeros(8, Float)
         Tspill = []
+        Tspillnew=[]
         eff = []
         #odin.Info("maximum altitude in orbit %6.2f km" % (maxalt/1000.0))
+        baf=[]
+        bafstw=[]
+        bafaltitude=[]
         for s in calibrated:
             if s.type == 'SPE' and s.altitude > maxalt-10.0e3:
+                baf.append(s.data)
+                bafstw.append(s.stw)
+                bafaltitude.append(s.altitude)
                 n = len(s.data)
-                med = numpy.sort(s.data)[n/2]
-                Tspill.append(med)
+                #med = numpy.sort(s.data)[n/2]
+                #Tspill.append(med)
+                med = numpy.sort(s.data[s.data.nonzero()])
+                Tspill.append(med[len(med)/2])
+                med = numpy.sort(s.data[s.data.nonzero()])
+                Tspillnew.append(med[len(med)/2])
                 if s.backend == "AOS":
                     d = s.data
                     mean = numpy.add.reduce(d)/d.shape[0]
@@ -181,6 +314,31 @@ class Level1b_cal:
                     teff = (s.tsys*s.tsys/msq)/s.freqres
                     eff.append(teff/s.inttime)
         # Tspill is the median contribution from the baffle
+        #baf=numpy.array(baf)
+        #bafstw=numpy.array(bafstw)
+        #bafaltitude=numpy.array(bafaltitude)
+        if 0:#doplot:
+            pyplt.figure(12,(20,10))
+            pyplt.subplot(3,1,1)
+            pyplt.plot(baf[0,:],'b')
+            pyplt.plot(numpy.mean(baf,0),'r')
+            pyplt.ylabel('Tspill spec.')
+            pyplt.xlabel('unsorted frequency')
+            pyplt.legend(['single spec.','average spec.'])
+            pyplt.subplot(3,1,2)
+            #pyplt.plot(bafstw,numpy.median(baf,1),'o-')
+            pyplt.plot(bafstw,Tspill,'*')
+            #pyplt.plot(bafstw,Tspillnew,'+-')
+            pyplt.plot(tstw,tspillo,'g*-')
+            print numpy.array(Tspill)-numpy.array(Tspillnew)
+            pyplt.xlabel('stw')
+            pyplt.ylabel('Tspill')
+            pyplt.legend(['single','+-45 min window'])
+            pyplt.subplot(3,1,3)
+            pyplt.plot(bafaltitude,numpy.median(baf,1),'*')
+            pyplt.ylabel('Tspill')
+            pyplt.xlabel('altitude')
+            pyplt.show()
         n = len(Tspill)
         if n:
             Tspill = numpy.sort(Tspill)[n/2]
@@ -205,8 +363,22 @@ class Level1b_cal:
                 s.data = numpy.choose(numpy.equal(s.data,0.0), 
                                       ((s.data-Tspill)/eta, 0.0))
                 s.efftime = s.inttime*eff
-               
-        return calibrated,VERSION
+        print Tspill  
+        pyplt.figure(30,(20,10))
+        for i,s in enumerate(calibrated):
+            if i==0:
+                #
+                fd=self.frequency(s)
+                #print fd[0:112]
+                #print error
+                fd=numpy.array(fd)
+            if s.type == 'SPE' and i<1000:
+                pyplt.plot(fd,s.data,'.')
+                pyplt.xlabel('frequency [GHz]')
+                pyplt.ylabel('Tb [K]')
+        pyplt.show()        
+                
+        return calibrated,VERSION,Tspill
    
     def cleanref(self, ref):
         if len(ref) == 0:
@@ -266,6 +438,7 @@ class Level1b_cal:
             # calculate a Tsys spectrum from given C and R
             cal[k].data=self.gain(cal[k],R)
         # combine CAL spectra into matrix
+        return cal
         (cstw,cmat) = self.matrix(cal)
         nc = cmat.shape[0]
         if cal[0].backend == 'AOS':
@@ -279,7 +452,7 @@ class Level1b_cal:
                 i1 = i0+n
                 mc = numpy.add.reduce(cmat[:,i0:i1],1)/float(n)
                 # print "mc =", mc, nc, len(nonzero(mc))
-                if len(numpy.nonzero(mc)) < nc or nc < 2:
+                if len(numpy.nonzero(mc)[0]) < nc or nc < 2:
                     rms[band] = 1.0e10
                 else:
                     mc = mc - numpy.add.reduce(mc)/float(nc)
@@ -306,7 +479,6 @@ class Level1b_cal:
             for i in range(nc-1,-1,-1):
                 if (mc[i] < Tmin or mc[i] > Tmax or 
                     abs((mc[i]-tsys)/tsys) > 0.02):
-                    pass
                     del cal[i]
 
         del mc
@@ -339,7 +511,7 @@ class Level1b_cal:
         if s.frontend in ['495', '549', '555', '572']:
             maxdB = dB[s.frontend]
         else:
-            return numpy.ones(shape=len(s.channels,))
+            return numpy.ones(shape=len(s.data,))
         
         fIF = 3900e6
         if s.skyfreq > s.lofreq:
@@ -416,7 +588,6 @@ class Level1b_cal:
                for j in range(k): 
                    f[m+j] = s.LO[adc/2]*1e6 +j*df;
                m += k;
-
        fdata=numpy.zeros(shape=(n,))
        if s.skyfreq >= s.lofreq:            
             for i in range(n):               
@@ -511,7 +682,7 @@ class Level1b_cal:
         return (Tmin, Tmax)
 
     def gain(self,cal,ref):
-        data=numpy.zeros(shape=(112*8,))
+        data=numpy.zeros(shape=(len(cal.data),))
         epsr=1.0
         etaMT=1.0
         etaMS=1.0
@@ -522,7 +693,7 @@ class Level1b_cal:
         if Thot == 0.0:
             Thot = 275.0
         dT = epsr*etaMT*Thot - etaMS*Tbg + (etaMS-etaMT)*Tspill;
-        for i in range(0,112*8):
+        for i in range(0,len(cal.data)):
             if ref.data[i] > 0.0:
                 if cal.data[i] > ref.data[i]:
                     data[i] = (ref.data[i]/
@@ -705,13 +876,17 @@ class Spectra:
         self.altitude=data['altitude']
         self.tsys=0
         self.efftime=0
-      
+        self.cc=numpy.ndarray(shape=(8,96),dtype='float64',
+                              buffer=con.unescape_bytea(data['cc']))
+        self.zerolag=numpy.array(self.cc[0:8,0])
+        self.skybeamhit=data['skybeamhit']
+        self.ssb_att=eval(data['ssb_att'].replace('{','(').replace('}',')'))
     def tuning(self):
 
         if self.frontend == '119':
             IFfreq = 3900.0e6
-            LOfreq = 114.8498600000000e+9
-            self.FCalibrate(self, LOfreq,IFfreq,[])
+            self.lofreq = 114.8498600000000e+9
+            self.fcalibrate(self.lofreq,IFfreq)
             return
         
         rxs = { '495': 1, '549': 2, '555': 3, '572': 4 }
@@ -782,17 +957,41 @@ def getSideBand(rx, LO, ssb):
 
    
    
+#if __name__ == "__main__":
+#def level1b_importer_window():
+
 
 def level1b_importer():
-
-    if len(argv)!=5:
-        print 'error in function call, example usage: bin/ipython level_1b_icalibrate 59715(orbit) AC2(backend) soda(version)'
+    
+    if len(argv)!=6:
+        print 'error in function call, example usage: bin/ipython level1b_importer 46370(orbit1) 46372(orbit2)  AC2(backend) soda(version) filter'
         exit(0)
+
     orbit=argv[1] #59715
-    backend=argv[2] #AC2
-    soda=argv[3]
-    orbit2=argv[4]
+    orbit2=argv[2]
+    backend=argv[3] #AC2
+    soda=argv[4]
+    ss=int(argv[5])
     con =db()
+
+    if ss==2:
+        stwoff=0
+        query=con.query('''select min(stw),max(stw) from
+                 ac_level1a
+                 natural join ac_level0
+                 where mode=1
+                 ''')
+        result2=query.dictresult()
+        temp=[result2[0]['min'],result2[0]['max']]
+        query=con.query('''select min(stw),max(stw) from ac_level0
+                       natural join getscansac2() 
+                       where start>={0} and start<={1}
+                       and backend='AC2' and mode=1
+                       '''.format(*temp))
+        result2=query.dictresult()
+        temp=[result2[0]['min'],result2[0]['max'],backend,stwoff,soda]
+        level1b_window_importer(backend,soda,con,temp,0)
+    
     #find min and max stws from orbit
     keys=[orbit,soda,orbit2]
     query=con.query('''select min(stw),max(stw)
@@ -808,6 +1007,7 @@ def level1b_importer():
     else:
         stwoff=0
     temp=[result1[0]['min'],result1[0]['max'],backend,stwoff]
+        
     if backend=='AC1':
         query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
                    from ac_level0 
@@ -828,46 +1028,173 @@ def level1b_importer():
         print 'no data from '+backend+' in orbit '+str(orbit)
         exit(0)
 
+
+    if ss==1:
+       if backend=='AC1':
+           query=con.query('''select start from ac_level0 
+                    natural join getscansac1() 
+                    where start>={0} and start<={1}
+                    and backend='AC1' group by start'''.format(*temp))
+       if backend=='AC2':
+           query=con.query('''select start from ac_level0 
+                    natural join getscansac2() 
+                    where start>={0} and start<={1}
+                    and backend='AC2' group by start'''.format(*temp))
+       result2=query.dictresult()
+       for index,row in enumerate(result2):
+           tdiff=45*60*16
+           temp=[row['start'],tdiff]
+           if backend=='AC1':
+               query=con.query('''select min(stw),max(stw) from ac_level0
+                       natural join getscansac1() 
+                       where start>={0}-{1} and start<={0}+{1}
+                       and backend='AC1' '''.format(*temp))
+           if backend=='AC2':
+               query=con.query('''select min(stw),max(stw) from ac_level0
+                       natural join getscansac2() 
+                       where start>={0}-{1} and start<={0}+{1}
+                       and backend='AC2' '''.format(*temp))
+           result3=query.dictresult()
+           temp=[result3[0]['min'],result3[0]['max'],backend,stwoff,soda]
+           print 'processing scan '+str(row['start'])+' nr '+str(index)+' of '+str(len(result2))
+           level1b_window_importer(backend,soda,con,temp,row['start'])
+    else:
+        temp=[result2[0]['min'],result2[0]['max'],backend,stwoff,soda]
+        level1b_window_importer(backend,soda,con,temp,0)
+    con.close()
+def level1b_window_importer(backend,soda,con,temp,calstw):
     #extract all necessary data for the orbit
-    temp=[result2[0]['min'],result2[0]['max'],backend,stwoff,soda]
-    #first "signal" data
-    query=con.query('''select ac_level0.stw,backend,frontend,sig_type,
+    #
+    if backend=='AC1':
+        query=con.query('''(
+                       select ac_level0.stw,start,ssb_att,skybeamhit,cc,backend,
+                       frontend,sig_type,
                        spectra,inttime,qerror,qachieved,
                        latitude,longitude,altitude,lo,ssb,
-                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo
+                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo,
+                       frontendsplit
                        from ac_level0
                        natural join ac_level1a
                        natural join shk_level1
                        natural join attitude_level1
+                       natural join getscansac1()
                        join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
                        where ac_level0.stw>={0} and ac_level0.stw<={1}
+                       and ac_level0.stw>start
+                       and mech_type!='SK2'
                        and backend='{2}' and soda={4}
-                       order by ac_level0.stw'''.format(*temp))
-    result=query.dictresult()
-    #now reference data 
-    query=con.query('''select ac_level0.stw,backend,frontend,sig_type,
+                       order by stw)'''.format(*temp))
+    if backend=='AC2':
+        query=con.query('''(
+                       select ac_level0.stw,start,ssb_att,skybeamhit,cc,backend,
+                       frontend,sig_type,
                        spectra,inttime,qerror,qachieved,
                        latitude,longitude,altitude,lo,ssb,
-                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo
+                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo,
+                       frontendsplit
                        from ac_level0
                        natural join ac_level1a
                        natural join shk_level1
-                       natural left join attitude_level1
+                       natural join attitude_level1
+                       natural join getscansac2()
                        join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
                        where ac_level0.stw>={0} and ac_level0.stw<={1}
-                       and backend='{2}' and sig_type='REF'
-                       order by ac_level0.stw'''.format(*temp))
-    resultb=query.dictresult()
-    result.extend(resultb)
+                       and ac_level0.stw>start
+                       and mech_type!='SK2'
+                       and backend='{2}' and soda={4}
+                       and lo>=1
+                       order by stw)'''.format(*temp))
+    if 0:
+        query=con.query('''(
+                       select ac_level0.stw,start,ssb_att,skybeamhit,cc,backend,
+                       frontend,sig_type,
+                       spectra,inttime,qerror,qachieved,
+                       latitude,longitude,altitude,lo,ssb,
+                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo,
+                       frontendsplit
+                       from ac_level0
+                       natural join ac_level1a
+                       natural join shk_level1
+                       natural join attitude_level1
+                       natural join getscansac2()
+                       join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
+                       where ac_level0.stw>={0} and ac_level0.stw<={1}
+                       and ac_level0.stw>start
+                       and mech_type!='SK2'
+                       and backend='{2}' 
+                       and lo>=1
+                       order by stw limit 500)'''.format(*temp))
+        
+    result=query.dictresult()
+    print len(result)
     if result==[]:
         print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit 
         exit(0)
-
+    
+    #extract data from the "result" and do a frequency calibration
+    listofspec=[]
+    start=0
+    remove_ref=0
+    remove_ref2=0
+    for rowind,row in enumerate(result):
+        #remove first refrence data after a calibration
+        if row['sig_type']=='REF' and row['mech_type']=='CAL':
+            remove_next_ref=1
+            #the number of references that should be removed
+            #after a calibration
+        if (row['sig_type']=='REF' and (row['mech_type']=='SK1' 
+            or row['mech_type']=='SK2' or row['mech_type']=='REF') and 
+            remove_next_ref>0):
+            remove_next_ref=remove_next_ref-1
+            continue
+        #if a scan has several calibration signals
+        #keep only the the second (the first has already
+        #been removed in the query)
+        if row['start']>start:
+            start=row['start']
+            start1=row['stw']
+            got_ref=0
+            
+        #remove unwished calibration spectrum
+        if (row['stw']>=start1 and row['sig_type']=='REF' and 
+            row['mech_type']=='CAL'):
+            if got_ref==0:
+                got_ref=1
+            else:
+                continue
+        
+        if row['sig_type']=='REF' and row['mech_type']=='CAL':
+           row['sig_type']='CAL' 
+        spec=Spectra(con,row)
+        if spec.frontend=='SPL':
+            #split data into two spectra
+            aa=odin.Spectrum()
+            aa.backend=spec.backend
+            aa.channels=len(spec.data)
+            aa.data=spec.data
+            aa.lofreq=spec.lofreq
+            aa.intmode=spec.intmode
+            aa.frontend=spec.frontend
+            (s1, s2) = aa.Split()
+            #df=numpy.array([eval(s1.frontend),eval(s2.frontend)])
+            #df=abs(df-spec.lofreq/1e9)
+            if s1.frontend==row['frontendsplit']:
+                spec.data=s1.data
+                spec.intmode=s1.intmode
+                spec.frontend=s1.frontend
+            if s2.frontend==row['frontendsplit']:
+                spec.data=s2.data
+                spec.intmode=s2.intmode
+                spec.frontend=s2.frontend
+        #frequency calibrate
+        spec.tuning()
+        listofspec.append(spec)
+        
     #group data by frontend
     #frontend=['495', '549', '555', '572']
     frontend=[]
-    for row in result:
-        frontend.append(row['frontend'])
+    for row in listofspec:
+        frontend.append(row.frontend)
     frontend=numpy.array(frontend)
     frontends=numpy.unique(frontend)
     if len(frontends)==1:
@@ -888,22 +1215,12 @@ def level1b_importer():
             frontends[2]:  [],
             frontends[3]:  [],
             }
-    for row in result:
-        if row['sig_type']=='REF' and row['mech_type']=='CAL':
-           row['sig_type']='CAL' 
-        spec=Spectra(con,row)
-        fe[spec.frontend].append(spec)
-    
+    for row in listofspec:
+        fe[row.frontend].append(row)
     spectra=[]
     frontends=fe.keys()
     for frontend in frontends:
-        result=fe[frontend]
-    
-        for row in result:
-            aca=row
-            #frequency calibrate
-            aca.tuning()
-            spectra.append(aca)
+        spectra=fe[frontend]
         fsky=[]
         for spec in spectra:
             fsky.append(spec.skyfreq)
@@ -911,16 +1228,18 @@ def level1b_importer():
         # create vector with all indices of fsky where frequency
         # changes by more than one MHz
         modes = numpy.nonzero(abs(fsky[1:]-fsky[:-1]) > 1.0e6)
-        modes =numpy.ndarray(shape=(len(modes[0]),),buffer=modes[0])
+        #modes =numpy.ndarray(shape=(len(modes[0]),),buffer=modes[0])
+        modes=numpy.array(modes[0])
         # prepend integer '0' and append integer 'len(fsky)'
         modes = numpy.concatenate((numpy.concatenate(([0], modes)), 
                                    [len(fsky)]))
+        
         for m in range(len(modes)-1):
             start=int(modes[m])
             stop=int(modes[m+1])
-            ac=Level1b_cal(spectra[start:stop])
+            ac=Level1b_cal(spectra[start:stop],calstw,con)
             #intensity calibrate
-            (calibrated,VERSION)=ac.calibrate()
+            (calibrated,VERSION,Tspill)=ac.calibrate()
             if calibrated==None:
                 continue
             #store data into database tables
@@ -932,7 +1251,8 @@ def level1b_importer():
                     calstw=s.stw 
                 s.source = ac.source
                 s.topic = ac.topic    
-                if ac.split:
+                if 0:#ac.split:
+                    #do not use this for testing
                     #split data into two spectra
                     aa=odin.Spectrum()
                     aa.backend=s.backend
@@ -947,7 +1267,7 @@ def level1b_importer():
                     specs.append(s)
 
                 for spec in specs: 
-                    
+                    spec.data=spec.data[0:112]
                     if s.type=='SPE':
                         temp={
                     'stw'             :s.stw,
@@ -965,11 +1285,11 @@ def level1b_importer():
                     'sourcemode'      :ac.topic,
                     'freqmode'        :ac.freqmode,
                     'efftime'         :s.efftime,
-                    'sbpath'          :s.sbpath,
+                    'sbpath'          :0.0,
                     'calstw'         :calstw
                     }
-                        
-                        #con.insert('ac_level1b',temp)
+                    #'sbpath'          :s.sbpath,spe and cal    
+                        con.insert('ac_level1bn',temp)
 
                     elif s.type=='CAL' or s.type=='SSB':
                         temp={
@@ -988,11 +1308,12 @@ def level1b_importer():
                     'sourcemode'      :ac.topic,
                     'freqmode'        :ac.freqmode,
                     'sbpath'          :s.sbpath,
+                    'tspill'          :Tspill,
                     }
                         #con.insert('ac_cal_level1b',temp)
             
-    con.close()
-
+    
+                        
 
 
 
