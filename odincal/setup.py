@@ -23,6 +23,7 @@ setup(
             "att_level1_importer = odincal.att_level1_importer:att_level1_importer",
             "shk_level1_importer = odincal.shk_level1_importer:shk_level1_importer",
             "level1b_importer = odincal.level1b_importer:level1b_importer",
+            "level1b_window_importer = odincal.level1b_window_importer:level1b_importer",
             "level1b_exporter = odincal.level1b_exporter:level1b_exporter",
     ],},
 

@@ -10,6 +10,7 @@ drop type spectype cascade;
 drop table ac_level0 cascade;
 drop table ac_level1a cascade;
 drop table ac_level1b cascade;
+drop table ac_level1bn cascade;
 drop table ac_cal_level1b cascade;
 drop table fba_level0;
 drop table attitude_level0 cascade;
@@ -25,9 +26,15 @@ create type mech as enum ('REF','SK1','CAL','SK2');
 create type scan as (start bigint, stw bigint);
 create type shk_type as enum ('LO495','LO549','LO555','LO572','SSB495','SSB549',
 'SSB555','SSB572','mixC495','mixC549','mixC555','mixC572','imageloadB',
-'hotloadA','hotloadB')
+'hotloadA','hotloadB');
+create type shk_typenew as enum ('LO495','LO549','LO555','LO572','SSB495','SSB549','SSB555','SSB572','mixC495','mixC549','mixC555','mixC572','imageloadA','imageloadB','hotloadA','hotloadB','mixerA','mixerB','lnaA','lnaB','119mixerA','119mixerB','warmifA','warmifB');
+
+
 create type sourcemode as enum ('STRAT','ODD_H','ODD_N','WATER','SUMMER',
 'DYNAM');
+create type sourcemoden as enum ('STRAT','ODD_H','ODD_N','WATER','SUMMER',
+'DYNAM','N/A');
+
 create type spectype as enum ('SIG','REF','CAL','CMB','DRK','SK1','SK2','SPE',
 'SSB','AVE');
 
@@ -62,7 +69,7 @@ create table ac_level1a(
    constraint pk_aclevel1a_data primary key (backend,stw)
 );
 
-create table ac_level1b(
+create table ac_level1bn(
    stw bigint,
    backend backend,
    version int,
@@ -75,12 +82,12 @@ create table ac_level1b(
    restfreq double precision,
    maxsuppression double precision,
    tsys real,
-   sourcemode sourcemode,
+   sourcemode sourcemoden,
    freqmode int,
    efftime real,
    sbpath real,
    calstw bigint,
-   constraint pk_aclevel1b_data primary key (backend,stw,version,intmode,soda)
+   constraint pk_aclevel1bn_data primary key (backend,stw,version,intmode,soda)
 );
 
 create table ac_cal_level1b(
@@ -99,6 +106,7 @@ create table ac_cal_level1b(
    sourcemode sourcemode,
    freqmode int,
    sbpath real,
+   tspill real,
    constraint pk_accallevel1b_data primary key (backend,stw,version,spectype,intmode,soda)
 );
 
@@ -160,17 +168,46 @@ create table shk_level0(
    shk_value real,
    constraint pk_shklevel0_data primary key (stw,shk_type)
 );
+create table shk_level0n(
+   stw bigint,
+   shk_type shk_typenew,
+   shk_value real,
+   constraint pk_shklevel0n_data primary key (stw,shk_type)
+);
 
 create table shk_level1(
    stw bigint,
    backend backend,
+   frontendsplit frontend,
    LO real,
    SSB real,
    mixC real,
    imageloadB real,
    hotloadA real,
    hotloadB real,
-   constraint pk_shklevel1_data primary key (stw,backend)
+   constraint pk_shklevel1_data primary key (stw,backend,frontendsplit)
+);
+
+create table shk_level1n(
+   stw bigint,
+   backend backend,
+   frontendsplit frontend,
+   LO real,
+   SSB real,
+   mixC real,
+   imageloadA real,
+   imageloadB real,
+   hotloadA real,
+   hotloadB real,
+   mixerA real, 
+   mixerB real, 
+   lnaA real,
+   lnaB real,
+   mixer119A real,
+   mixer119B real,
+   warmifA real,
+   warmifB real,
+   constraint pk_shklevel1n_data primary key (stw,backend,frontendsplit)
 );
 
 
@@ -190,7 +227,7 @@ begin
    scanstart:=-1;
    
    for r in spectrum_curs loop
-      if r.mech_type='CAL' and prev_mech<>'CAL' then
+      if r.mech_type='CAL' and prev_mech<>'CAL'  then
          scanstart:=r.stw;
       end if;
       res.start:=scanstart;
