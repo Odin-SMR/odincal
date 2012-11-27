@@ -5,7 +5,7 @@ import pg
 from pg import DB
 from sys import stderr,stdout,stdin,argv,exit
 import matplotlib.pyplot as pyplt
-from odincal.ref_interpolation_fast import Lodin_fit
+from odincal.reference_fit import Ref_fit
 
 class db(DB):
     def __init__(self):
@@ -777,9 +777,9 @@ def getSideBand(rx, LO, ssb):
 class Newer(Level1b_cal):
     def __init__(self,spectra,calstw,con):
         Level1b_cal.__init__(self,spectra,calstw,con)
-        self.lodin_fit=Lodin_fit()
+        self.ref_fit=Ref_fit()
     def interpolate(self, mstw, m, stw, inttime, start):
-        return self.lodin_fit.interp(mstw, m, stw, inttime, start)
+        return self.ref_fit.interp(mstw, m, stw, inttime, start)
 
 
 def level1b_importer():
