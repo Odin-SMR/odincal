@@ -21,7 +21,7 @@ class Ref_fit():
         self.t0=t-t1
         index=numpy.abs(self.t0)<=self.lamb
         #print numpy.min(self.t0[index]),numpy.max(self.t0[index])
-        self.w=numpy.exp(-numpy.abs(32*self.t0[index])/self.lamb)
+        self.w=numpy.exp(-numpy.abs(16*self.t0[index])/self.lamb)
         self.sigma=1/numpy.sqrt(tint[index])
         #print self.sigma.shape
         #print t.shape

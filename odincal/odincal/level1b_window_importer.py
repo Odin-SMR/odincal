@@ -20,11 +20,11 @@ class Level1b_cal():
         self.con=con
     def calibrate(self):
         """Do intensity calibration for all receivers."""
-        VERSION = 0x0015
+        VERSION = 0x0008
         (sig,ref,cal) = self.sortspec(self.spectra)
         self.checkaltitude(sig)
         if len(sig) == 0:
-            return None,VERSION
+            return None,VERSION,None
         #ns = len(sig)/len(scans)
         #if ns < 5:
         #    return None
@@ -33,13 +33,13 @@ class Level1b_cal():
             print len(ref)
         if len(ref) == 0:
             odin.Warn("no reference spectra found") 
-            return None,VERSION
+            return None,VERSION,None
         if len(cal) > 0:
             cal = self.cleancal(cal, ref)
             print len(cal)
         if len(cal) == 0:
             odin.Warn("no calibration spectra found")
-            return None,VERSION
+            return None,VERSION,None
         print 'skyfreq',ref[0].skyfreq/1e9
 
         #some tests
