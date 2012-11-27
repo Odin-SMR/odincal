@@ -66,7 +66,7 @@ def shk_level1_importer():
                     sel=[shk+frontend,sig['stw']]
                 else:
                     sel=[shk,sig['stw']]
-                query=con.query('''select stw,shk_value from shk_level0n
+                query=con.query('''select stw,shk_value from shk_level0
                                where shk_type='{0}' and
                                stw>{1}-2080 and stw<{1}+2080
                                order by stw'''.format(*sel[:]))
