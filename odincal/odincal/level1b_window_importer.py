@@ -834,7 +834,7 @@ def level1b_importer():
         query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
                    from ac_level0 
                    natural join getscansac1() 
-                   natural join shk_level1n
+                   natural join shk_level1
                    where start>={0} and start<={1} and lo>548e9 and lo<550e9
                    and backend='{2}' and ssb_fq='{4}'
                    '''.format(*temp))
@@ -843,7 +843,7 @@ def level1b_importer():
         query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
                    from ac_level0 
                    natural join getscansac2()
-                   natural join shk_level1n
+                   natural join shk_level1
                    where start>={0} and start<={1}
                    and backend='{2}' and ssb_fq='{4}' and lo>4.978e11
                    '''.format(*temp))
@@ -858,13 +858,13 @@ def level1b_importer():
        if backend=='AC1':
            query=con.query('''select start from ac_level0 
                     natural join getscansac1() 
-                    natural join shk_level1n
+                    natural join shk_level1
                     where start>={0} and start<={1}
                     and backend='AC1' and ssb_fq='{4}' and lo>548e9 and lo<550e9 group by start'''.format(*temp))
        if backend=='AC2':
            query=con.query('''select start from ac_level0 
                     natural join getscansac2()
-                    natural join shk_level1n
+                    natural join shk_level1
                     where start>={0} and start<={1}
                     and backend='AC2' and ssb_fq='{4}' and lo>4.978e11 group by start '''.format(*temp))
        result2=query.dictresult()
@@ -875,7 +875,7 @@ def level1b_importer():
                temp.append('{4300,3700,4100,3900}')
                query=con.query('''select min(stw),max(stw) from ac_level0
                        natural join getscansac1() 
-                       natural join shk_level1n 
+                       natural join shk_level1 
                        where start>={0}-{1} and start<={0}+{1}
                        and ssb_fq='{2}' and lo>548e9 and lo<550e9 
                        and backend='AC1' '''.format(*temp))
@@ -883,7 +883,7 @@ def level1b_importer():
                temp.append('{3400,4200,3600,4400}')
                query=con.query('''select min(stw),max(stw) from ac_level0
                        natural join getscansac2()
-                       natural join shk_level1n 
+                       natural join shk_level1 
                        where start>={0}-{1} and start<={0}+{1}
                        and backend='AC2' and ssb_fq='{2}' and lo>4.978e11'''.format(*temp))
            result3=query.dictresult()
@@ -909,13 +909,12 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                        frontendsplit
                        from ac_level0
                        natural join ac_level1a
-                       natural join shk_level1n
+                       natural join shk_level1
                        natural join attitude_level1
                        natural join getscansac1()
                        join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
                        where ac_level0.stw>={0} and ac_level0.stw<={1}
                        and ac_level0.stw>start
-                       and mech_type!='SK2'
                        and backend='{2}' and soda={4}
                        and ssb_fq='{5}' and lo>548e9 and lo<550e9
                        order by stw)'''.format(*temp))
@@ -931,7 +930,7 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                        frontendsplit
                        from ac_level0
                        natural join ac_level1a
-                       natural join shk_level1n
+                       natural join shk_level1
                        natural join attitude_level1
                        natural join getscansac2()
                        join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
@@ -939,27 +938,7 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                        and backend='{2}' and soda={4}
                        and ssb_fq='{5}' and lo>4.978e11 
                        order by stw)'''.format(*temp))
-    if 0:
-        query=con.query('''(
-                       select ac_level0.stw,start,ssb_att,skybeamhit,cc,backend,
-                       frontend,sig_type,
-                       spectra,inttime,qerror,qachieved,
-                       latitude,longitude,altitude,lo,ssb,
-                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo,
-                       frontendsplit
-                       from ac_level0
-                       natural join ac_level1a
-                       natural join shk_level1n
-                       natural join attitude_level1
-                       natural join getscansac2()
-                       join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
-                       where ac_level0.stw>={0} and ac_level0.stw<={1}
-                       and ac_level0.stw>start
-                       and mech_type!='SK2'
-                       and backend='{2}' 
-                       and lo>=1 
-                       order by stw limit 500)'''.format(*temp))
-        
+         
     result=query.dictresult()
     print len(result)
     if result==[]:
@@ -1151,7 +1130,7 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                     'calstw'          :calstw
                     }
                     #'sbpath'          :s.sbpath,spe and cal    
-                        con.insert('ac_level1bn',temp)
+                        con.insert('ac_level1b',temp)
 
                     elif s.type=='CAL' or s.type=='SSB' and s.stw==calstw:
                         temp={
