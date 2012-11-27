@@ -433,6 +433,7 @@ class ACfile(Level0File):
     
     def IntTime(self,words):
         prescaler = int(words[49])
+        print prescaler
         if prescaler >= 2 and prescaler <= 6:
             samples = long(0x0000ffff & words[12])
             samples = samples << (14-prescaler)
@@ -453,7 +454,7 @@ class ACfile(Level0File):
             bands = 2
         elif mode == 0x00:
             bands = 1
-        return bands
+        return mode
     
     def ZeroLags(self, words):
         bands = self.Mode(words)

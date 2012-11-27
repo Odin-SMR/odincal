@@ -6,6 +6,7 @@ import numpy
 from pg import DB,ProgrammingError
 from sys import argv
 from os.path import splitext,basename
+import matplotlib.pyplot as plt
 
 class db(DB):
     def __init__(self):
@@ -101,13 +102,22 @@ def getSHK(hk):
               "SSB549"           :(STW,SSB549),
               "SSB555"           :(STW,SSB555),
               "SSB572"           :(STW,SSB572),
-              "mixC495":         [],
-              "mixC549":         [],
-              "mixC555":         [],
-              "mixC572":         [],
-              "imageloadB":      [],
-              "hotloadA"  :      [],
-              "hotloadB"  :      []
+              "mixC495"          :[],
+              "mixC549"          :[],
+              "mixC555"          :[],
+              "mixC572"          :[],
+              "imageloadA"       :[],
+              "imageloadB"       :[],
+              "hotloadA"         :[],
+              "hotloadB"         :[],
+              "mixerA"           :[],
+              "mixerB"           :[],
+              "lnaA"             :[],
+              "lnaB"             :[],
+              "119mixerA"        :[],
+              "119mixerB"        :[],
+              "warmifA"          :[],
+              "warmifB"          :[],
               }
     shktypeslist={
         "mixer current 495"  :"mixC495",
@@ -115,15 +125,25 @@ def getSHK(hk):
         "mixer current 555"  :"mixC555",
         "mixer current 572"  :"mixC572", 
         "image load B-side"  :"imageloadB",
+        "image load A-side"  :"imageloadA",
         "hot load A-side"    :"hotloadA",
         "hot load B-side"    :"hotloadB",
+        "mixer A-side"       :"mixerA",
+        "mixer B-side"       :"mixerB",
+        "LNA A-side"         :"lnaA",
+        "LNA B-side"         :"lnaB",
+        "119GHz mixer A-side":"119mixerA",
+        "119GHz mixer B-side":"119mixerB",
+        "warm IF A-side"     :"warmifA",
+        "warm IF B-side"     :"warmifB",
         }
-    for shktype in shktypeslist: 
+    for shktype in shktypeslist:
         table = HKdata[shktype]
         data = hk.getHKword(table[0],sub=table[1])
         data1 = map(table[2], data[1])
         if shktype=="hot load A-side" or shktype=="hot load B-side":
            data1 = numpy.array(data1)+273.15
+
         shktypes[shktypeslist[shktype]]=(data[0],data1)
     return shktypes
         
@@ -163,7 +183,7 @@ def getAC(ac):
         lags64 = numpy.array(lags,dtype='int64')
         #combine lags and data to ensure validity of first value in cc-channels
         zlags = numpy.left_shift(lags64,4)  + numpy.bitwise_and(cc64[:,0],0xf)
-        zlags.shape=(8,1)
+        zlags.shape=(8,1)   
         cc64[:,0]=zlags[:,0]
         #find potential underflow in third element of cc
         mask = cc64[:,2]>0
