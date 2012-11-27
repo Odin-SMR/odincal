@@ -20,8 +20,7 @@ def att_level1_importer():
     con =db()
     query=con.query('''select stw,backend,inttime from ac_level0
                        natural left join attitude_level1 
-                       where sig_type='SIG' 
-                       and (soda is NULL or soda!={0})
+                       where (soda is NULL or soda!={0})
                        order by stw'''.format(soda))
     sigresult=query.dictresult()
     for sig in sigresult:
