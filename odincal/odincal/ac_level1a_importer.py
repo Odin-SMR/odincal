@@ -3,7 +3,9 @@ import sys
 from math import erfc, erf, pi, sqrt, exp,cos
 from pg import DB
 import ctypes 
-from pkg_resources import resource_filename 
+from pkg_resources import resource_filename
+import matplotlib.pyplot as pyplt
+
 class db(DB):
     def __init__(self):
         DB.__init__(self,dbname='odin')
@@ -12,18 +14,17 @@ class Level1a:
     """A class to process level 0 files into level 1a."""
     def __init__(self):  
         self.LAGSPERCHIP  =96
-        self.MAXCHIPS     =8
         self.CLOCKFREQ    =224.0e6
         self.SAMPLEFREQ   =10.0e6
-  
+        
     def reduceAC(self,cc_data,acd_mon_pos,acd_mon_neg):
-        self.nred=112
-        datamod=numpy.zeros(shape=(self.MAXCHIPS,self.nred))
-        datamod[:,0:self.LAGSPERCHIP]=cc_data
         self.got=[]
-        for i in range(self.MAXCHIPS):
-            goti=self.reduce1Band(datamod[i,:],acd_mon_pos[i],
-                                             acd_mon_neg[i])
+        for i in range(len(cc_data)):
+            self.maxchips=len(cc_data[i])/96
+            self.nred=self.maxchips*112
+            datamod=numpy.zeros(shape=(1,self.nred))
+            datamod[0,0:self.maxchips*self.LAGSPERCHIP]=cc_data[i]
+            goti=self.reduce1Band(datamod[0,:],acd_mon_pos[i],acd_mon_neg[i])
             if goti[0]==1:
                 self.got.append(goti[1])
             else:
@@ -52,7 +53,7 @@ class Level1a:
         #perform an fft of data
         librarypath=resource_filename('oops','libfft.so')
         libc=ctypes.CDLL(librarypath,mode=3)
-        n0=ctypes.c_int(112)
+        n0=ctypes.c_int(112*self.maxchips)
         c_float_p = ctypes.POINTER(ctypes.c_double)
         data0 = numpy.array(data[1])
         data_p = data0.ctypes.data_as(c_float_p)
@@ -102,12 +103,46 @@ def zeroLag(zlag,v):
     x = v/inv_erfc(zlag)
     return  x*x/2.0
 
+def get_seq(mode):
+    '''get the ac chip configuration from the mode parameter'''
+    seq=numpy.zeros(16)
+    seq.dtype=int
+    ssb= [1, -1, 1, -1, -1, 1, -1, 1 ]
+    mode = (mode << 1) | 1
+    for i in range(8):
+        if (mode & 1):
+            m = i  
+        seq[2*m]= seq[2*m]+1        
+        mode >>= 1
+
+    for i in range(8):
+        if (seq[2*i]): 
+            if (ssb[i] < 0): 
+                seq[2*i+1] = -1;
+            else:            
+                seq[2*i+1] =  1;
+        else:            
+            seq[2*i+1] =  0;
+    chips=[]
+    band_start=[]
+    band=0
+    '''chips is a list of vectors'''
+    '''for example chips=[[0], [1, 2, 3, 4], [5, 6, 7]] gives
+       that we observe three bands: the first is
+       from a single chip, for second band chip 1,2,3,4 are cascaded,
+       for third band chip 5,6,7 are cascaded'''
+    for ind,se in enumerate(seq):
+        if ind==band:
+            band_start.append(ind/2)
+            chips.append(range(ind/2,ind/2+se))
+            band=ind+2*se
+    band_start=numpy.array(band_start)
+
+    return seq,chips,band_start
+
+
 def ac_level1a_importer():
     con=db()
-    #query=con.query('''select stw,backend,acd_mon,cc from
-    #             ac_level0 
-    #             natural left join ac_level1a
-    #             where spectra is Null order by stw''')
     query=con.query('''select stw,backend from
                  ac_level0 
                  natural left join ac_level1a
@@ -117,21 +152,33 @@ def ac_level1a_importer():
     ac=Level1a()
     for ind,row in enumerate(result):
         tempb=[row['stw'],row['backend']]
-        queryb=con.query('''select acd_mon,cc from
-                           ac_level0 where 
+        queryb=con.query('''select acd_mon,cc,mode from
+                           ac_level0 where  
                            stw={0} and backend='{1}' '''.format(*tempb))
         resultb=queryb.dictresult() 
         rowb={'stw'      :row['stw'],
               'backend'  :row['backend'],
               'acd_mon'  :resultb[0]['acd_mon'],
-              'cc'       :resultb[0]['cc'],}
+              'cc'       :resultb[0]['cc'],
+              'mode'     :resultb[0]['mode'],}
         acd_mon=numpy.ndarray(shape=(8,2),dtype='float64',
                               buffer=con.unescape_bytea(rowb['acd_mon']))
-        cc=numpy.ndarray(shape=(8,96),dtype='float64',
+        cc=numpy.ndarray(shape=(8*96,),dtype='float64',
                          buffer=con.unescape_bytea(rowb['cc']))
-        ac.reduceAC(cc,acd_mon[:,0],acd_mon[:,1])
-        a=numpy.array(ac.got)
-        a.shape=(8*112,)
+        #xheck the mode of the correlator configuration
+        seq,chips,band_start=get_seq(rowb['mode'])
+        #make a list with of vectors with cc-data for the band 
+        #to process, take mode into account 
+        cclist=[]
+        for ind,band in enumerate(band_start):
+            cclist.append(cc[band*96:(band+len(chips[ind]))*96,])
+
+        ac.reduceAC(cclist,acd_mon[band_start,0],acd_mon[band_start,1])
+
+        a=numpy.zeros(shape=(8*112,))
+        for ind,band in enumerate(band_start):
+            a[band*112:(band+len(chips[ind]))*112]=ac.got[ind]
+
         data=con.escape_bytea(abs(a).tostring())
         temp={
             'stw'         : row['stw'],

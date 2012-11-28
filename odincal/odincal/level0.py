@@ -183,8 +183,15 @@ def getAC(ac):
         lags64 = numpy.array(lags,dtype='int64')
         #combine lags and data to ensure validity of first value in cc-channels
         zlags = numpy.left_shift(lags64,4)  + numpy.bitwise_and(cc64[:,0],0xf)
-        zlags.shape=(8,1)   
-        cc64[:,0]=zlags[:,0]
+        zlags.shape=(8,1) 
+        seq,chips,band_start=get_seq(ac.Mode(head))
+        for ind in range(8):
+            if any(ind==band_start):
+                cc64[ind,0]=zlags[ind,0]
+                if cc64[ind,2]>0:
+                    #find potential underflow in third element of cc
+                    cc64[ind,2]-=65536
+        #cc64[:,0]=zlags[:,0]
         #find potential underflow in third element of cc
         mask = cc64[:,2]>0
         cc64[mask,2]-=65536
@@ -289,3 +296,41 @@ def getATT(file):
                 }
             datalist.append(datadict)
         return datalist
+
+
+def get_seq(mode):
+    '''get the ac chip configuration from the mode parameter'''
+    seq=numpy.zeros(16)
+    seq.dtype=int
+    ssb= [1, -1, 1, -1, -1, 1, -1, 1 ]
+    mode = (mode << 1) | 1
+    for i in range(8):
+        if (mode & 1):
+            m = i  
+        seq[2*m]= seq[2*m]+1        
+        mode >>= 1
+
+    for i in range(8):
+        if (seq[2*i]): 
+            if (ssb[i] < 0): 
+                seq[2*i+1] = -1;
+            else:            
+                seq[2*i+1] =  1;
+        else:            
+            seq[2*i+1] =  0;
+    chips=[]
+    band_start=[]
+    band=0
+    '''chips is a list of vectors'''
+    '''for example chips=[[0], [1, 2, 3, 4], [5, 6, 7]] gives
+       that we observe three bands: the first is
+       from a single chip, for second band chip 1,2,3,4 are cascaded,
+       for third band chip 5,6,7 are cascaded'''
+    for ind,se in enumerate(seq):
+        if ind==band:
+            band_start.append(ind/2)
+            chips.append(range(ind/2,ind/2+se))
+            band=ind+2*se
+    band_start=numpy.array(band_start)
+
+    return seq,chips,band_start
