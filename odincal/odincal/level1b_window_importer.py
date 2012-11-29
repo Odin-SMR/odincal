@@ -20,7 +20,7 @@ class Level1b_cal():
         self.con=con
     def calibrate(self):
         """Do intensity calibration for all receivers."""
-        VERSION = 0x0008
+        VERSION = 0x0009
         (sig,ref,cal) = self.sortspec(self.spectra)
         self.checkaltitude(sig)
         if len(sig) == 0:
@@ -30,13 +30,11 @@ class Level1b_cal():
         #    return None
         if len(ref) > 0:
             ref = self.cleanref(ref)
-            print len(ref)
         if len(ref) == 0:
             odin.Warn("no reference spectra found") 
             return None,VERSION,None
         if len(cal) > 0:
             cal = self.cleancal(cal, ref)
-            print len(cal)
         if len(cal) == 0:
             odin.Warn("no calibration spectra found")
             return None,VERSION,None
@@ -165,8 +163,15 @@ class Level1b_cal():
                 s.data = numpy.choose(numpy.equal(s.data,0.0), 
                                       ((s.data-Tspill)/eta, 0.0))
                 s.efftime = s.inttime*eff
-        print Tspill  
-               
+        print 'Tspill '+str(Tspill) 
+        #pyplt.figure()
+        #for ind,s in enumerate(calibrated):
+        #    pyplt.plot(s.data)
+        #    if ind==100:
+        #        break
+        #pyplt.show()
+                
+
         return calibrated,VERSION,Tspill
    
     def cleanref(self, ref):
@@ -438,7 +443,7 @@ class Level1b_cal():
         med = med[:,m]
         return med
         
-    def interpolate(self, mstw, m, stw, inttime):
+    def interpolate(self, mstw, m, stw, dummy1,dummy2):
         rows = m.shape[0]
         if rows != len(mstw):
             raise IndexError
@@ -668,8 +673,7 @@ class Spectra:
         self.backend=data['backend']
         self.frontend=data['frontend']
         self.vgeo=data['vgeo']
-        #if data['sig_type']!='SIG':
-        #    self.vgeo=0 
+        self.mode=data['mode']
         self.tcal=data['hotloada']
         self.freqres=1e6
         if data['sig_type']=='SIG':
@@ -691,6 +695,7 @@ class Spectra:
         self.altitude=data['altitude']
         self.tsys=0
         self.efftime=0
+        self.sbpath=0
         self.cc=numpy.ndarray(shape=(8,96),dtype='float64',
                               buffer=con.unescape_bytea(data['cc']))
         self.zerolag=numpy.array(self.cc[0:8,0])
@@ -778,8 +783,8 @@ class Newer(Level1b_cal):
     def __init__(self,spectra,calstw,con):
         Level1b_cal.__init__(self,spectra,calstw,con)
         self.ref_fit=Ref_fit()
-    def interpolate(self, mstw, m, stw, inttime, start):
-        return self.ref_fit.interp(mstw, m, stw, inttime, start)
+    #def interpolate(self, mstw, m, stw, inttime, start):
+    #    return self.ref_fit.interp(mstw, m, stw, inttime, start)
 
 
 def level1b_importer():
@@ -830,22 +835,18 @@ def level1b_importer():
     temp=[result1[0]['min'],result1[0]['max'],backend,stwoff]
         
     if backend=='AC1':
-        temp.append('{4300,3700,4100,3900}')
         query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
                    from ac_level0 
                    natural join getscansac1() 
                    natural join shk_level1
-                   where start>={0} and start<={1} and lo>548e9 and lo<550e9
-                   and backend='{2}' and ssb_fq='{4}'
+                   where start>={0} and start<={1}
                    '''.format(*temp))
     if backend=='AC2':
-        temp.append('{3400,4200,3600,4400}')
         query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
                    from ac_level0 
                    natural join getscansac2()
                    natural join shk_level1
                    where start>={0} and start<={1}
-                   and backend='{2}' and ssb_fq='{4}' and lo>4.978e11
                    '''.format(*temp))
 
     result2=query.dictresult()
@@ -860,32 +861,29 @@ def level1b_importer():
                     natural join getscansac1() 
                     natural join shk_level1
                     where start>={0} and start<={1}
-                    and backend='AC1' and ssb_fq='{4}' and lo>548e9 and lo<550e9 group by start'''.format(*temp))
+                    and backend='AC1' group by start'''.format(*temp))
        if backend=='AC2':
            query=con.query('''select start from ac_level0 
                     natural join getscansac2()
                     natural join shk_level1
                     where start>={0} and start<={1}
-                    and backend='AC2' and ssb_fq='{4}' and lo>4.978e11 group by start '''.format(*temp))
+                    and backend='AC2' group by start '''.format(*temp))
        result2=query.dictresult()
        for index,row in enumerate(result2):
            tdiff=45*60*16
            temp=[row['start'],tdiff]
            if backend=='AC1':
-               temp.append('{4300,3700,4100,3900}')
                query=con.query('''select min(stw),max(stw) from ac_level0
                        natural join getscansac1() 
                        natural join shk_level1 
-                       where start>={0}-{1} and start<={0}+{1}
-                       and ssb_fq='{2}' and lo>548e9 and lo<550e9 
+                       where start>={0}-{1} and start<={0}+{1} 
                        and backend='AC1' '''.format(*temp))
            if backend=='AC2':
-               temp.append('{3400,4200,3600,4400}')
                query=con.query('''select min(stw),max(stw) from ac_level0
                        natural join getscansac2()
                        natural join shk_level1 
                        where start>={0}-{1} and start<={0}+{1}
-                       and backend='AC2' and ssb_fq='{2}' and lo>4.978e11'''.format(*temp))
+                       and backend='AC2' '''.format(*temp))
            result3=query.dictresult()
            temp=[result3[0]['min'],result3[0]['max'],backend,stwoff,soda]
            print 'processing scan '+str(row['start'])+' nr '+str(index)+' of '+str(len(result2))
@@ -898,14 +896,12 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
     #extract all necessary data for the orbit
     #
     if backend=='AC1':
-        print temp
-        temp.append('{4300,3700,4100,3900}')
         query=con.query('''(
                        select ac_level0.stw,start,ssb_att,skybeamhit,cc,backend,
                        frontend,sig_type,
                        spectra,inttime,qerror,qachieved,
                        latitude,longitude,altitude,lo,ssb,
-                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo,
+                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo,mode,
                        frontendsplit
                        from ac_level0
                        natural join ac_level1a
@@ -914,19 +910,16 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                        natural join getscansac1()
                        join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
                        where ac_level0.stw>={0} and ac_level0.stw<={1}
-                       and ac_level0.stw>start
                        and backend='{2}' and soda={4}
-                       and ssb_fq='{5}' and lo>548e9 and lo<550e9
                        order by stw)'''.format(*temp))
     if backend=='AC2':
         print temp
-        temp.append('{3400,4200,3600,4400}')
         query=con.query('''(
                        select ac_level0.stw,start,ssb_att,skybeamhit,cc,backend,
                        frontend,sig_type,
                        spectra,inttime,qerror,qachieved,
                        latitude,longitude,altitude,lo,ssb,
-                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo,
+                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo,mode,
                        frontendsplit
                        from ac_level0
                        natural join ac_level1a
@@ -936,11 +929,11 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                        join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
                        where ac_level0.stw>={0} and ac_level0.stw<={1}
                        and backend='{2}' and soda={4}
-                       and ssb_fq='{5}' and lo>4.978e11 
+                       and lo>0 
                        order by stw)'''.format(*temp))
          
     result=query.dictresult()
-    print len(result)
+    print str(len(result))+' rows of data in database used for processing'
     if result==[]:
         print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit 
         exit(0)
@@ -1129,7 +1122,7 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                     'sbpath'          :s.sbpath,
                     'calstw'          :calstw
                     }
-                    #'sbpath'          :s.sbpath,spe and cal    
+                        
                         con.insert('ac_level1b',temp)
 
                     elif s.type=='CAL' or s.type=='SSB' and s.stw==calstw:

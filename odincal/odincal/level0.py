@@ -21,13 +21,16 @@ def ac2db():
             extension = splitext(datafile)[1]
             if extension == '.ac1' or extension == '.ac2':
                 f = ACfile(datafile)
+                f2 = ACfile(datafile)
                 while 1:
                     try:
                         datadict = getAC(f)
+                        discipline = getACdis(f2)
                         if stw_overflow:
                             datadict['stw']+=2**32
                         dbdict = db_prep(datadict,con)
-                        if dbdict['inttime']!=9999:
+                        if (dbdict['inttime']!=9999 and 
+                            discipline=='AERO'):    
                             con.insert('ac_level0',dbdict)
                     except EOFError:
                         break
@@ -73,16 +76,21 @@ def shk2db():
             if extension == '.shk':
                 hk=SHKfile(datafile)
                 datadict=getSHK(hk)
+                #stwvec=numpy.array(stwvec)
+                #discipline=numpy.array(discipline)
+                #if stw_overflow:
+                #    stwvec+=2**32  
                 for data in datadict:
                     for index,stw in enumerate(datadict[data][0]):
                         if stw_overflow:
-                            stw+=2**32      
+                            stw+=2**32  
                         datainsert={
                             'stw'      :stw,
                             'shk_type' :data,
                             'shk_value' :float(datadict[data][1][index]),
                             }
-                        try:
+                        #if discipline[datainsert['stw']==stwvec]=='AERO':
+                        try:  
                             con.insert('shk_level0',datainsert)
                         except ProgrammingError:
                             continue
@@ -91,6 +99,16 @@ def getSHK(hk):
         and creates a dictionary for easy insertation
         into a postgresdatabase.
         """
+    #"first find out dicipline i.e if data is for aero-observations"
+    #discipline=[]
+    #stw=[]
+    #words=hk.getBlock()
+    #while words:
+    #    discipline_def=hk.getIndex()
+    #    stw.extend([discipline_def[0]])
+    #   discipline.extend([discipline_def[2]])
+    #    words=hk.getBlock()
+    #hk.rewind()
     (STWa,LO495,LO549,STWb,LO555,LO572)=hk.getLOfreqs()
     (STW, SSB495, SSB549, SSB555, SSB572)= hk.getSSBtunings()
     shktypes={
@@ -148,14 +166,29 @@ def getSHK(hk):
     return shktypes
         
 
-
-
-
 def db_prep(datadict,db):
     dbdict = dict(datadict)
     dbdict['acd_mon'] = db.escape_bytea(datadict['acd_mon'])
     dbdict['cc']  = db.escape_bytea(datadict['cc'])
     return dbdict
+
+def getACdis(ac):
+     """AC factory.
+     reads a fileobject and extract the discipline of AC-data. Uses Ohlbergs 
+     routines to read the files (ACfile)
+     """
+     head = ac.getSpectrumHead() 
+     while head is not None:
+         discipline=ac.getIndex()
+         if discipline<>None:
+             discipline=discipline[2]
+             if discipline==None:
+                 discipline='Problem' 
+         else:
+             discipline='Problem'
+         return discipline
+     raise(EOFError('File ended.'))
+
 
 def getAC(ac):
     """AC factory.
@@ -167,7 +200,7 @@ def getAC(ac):
         0x73b0 : 'AC2',
     }
     CLOCKFREQ= 224.0e6
-    head = ac.getSpectrumHead()
+    head = ac.getSpectrumHead()      
     while head is not None:
         data = []
         stw = ac.stw
@@ -183,8 +216,10 @@ def getAC(ac):
         lags64 = numpy.array(lags,dtype='int64')
         #combine lags and data to ensure validity of first value in cc-channels
         zlags = numpy.left_shift(lags64,4)  + numpy.bitwise_and(cc64[:,0],0xf)
-        zlags.shape=(8,1) 
-        seq,chips,band_start=get_seq(ac.Mode(head))
+        zlags.shape=(8,1)
+        mode=ac.Mode(head)
+        seq,chips,band_start=get_seq(mode)
+    
         for ind in range(8):
             if any(ind==band_start):
                 cc64[ind,0]=zlags[ind,0]
@@ -193,8 +228,8 @@ def getAC(ac):
                     cc64[ind,2]-=65536
         #cc64[:,0]=zlags[:,0]
         #find potential underflow in third element of cc
-        mask = cc64[:,2]>0
-        cc64[mask,2]-=65536
+        #mask = cc64[:,2]>0
+        #cc64[mask,2]-=65536
         #scale
         if ac.IntTime(head)==0:
             IntTime=9999
@@ -220,7 +255,7 @@ def getAC(ac):
             'ssb_fq':"{{{},{},{},{}}}".format(*ac.SSBfrequency(head)),
             'prescaler': prescaler,
             'inttime': IntTime,
-            'mode':ac.Mode(head),
+            'mode':mode,
             'acd_mon': mon64,
             'cc': cc64,
         }

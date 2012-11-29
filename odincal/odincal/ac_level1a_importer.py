@@ -178,7 +178,6 @@ def ac_level1a_importer():
         a=numpy.zeros(shape=(8*112,))
         for ind,band in enumerate(band_start):
             a[band*112:(band+len(chips[ind]))*112]=ac.got[ind]
-
         data=con.escape_bytea(abs(a).tostring())
         temp={
             'stw'         : row['stw'],
