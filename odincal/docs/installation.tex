@@ -1,0 +1,38 @@
+\subsection{System preparations}
+Make sure the following packages are installed in your system.
+\begin{verbatim}  
+  $> sudo apt-get install libpng12-dev
+  $> sudo apt-get install postgresql-server python-setuptools python-dev
+  $> sudo apt-get install python-zc.buildout python-numpy libhdf5-serial-dev
+  $> sudo apt-get install build-essential postgresql-server-dev-9.1
+\end{verbatim}
+
+\subsection{Installation of odincal}
+
+The file buildout.cfg pulls all required packages into a local installation if the required packages with the correct version numbers are installed on the system buildout will use the packages from the system - if they don't exist buildout will build them. The file buildout in Figure \ref{buildout}.
+
+\begin{figure}
+\verbatimtabinput{../../buildout_runtime.cfg}
+\caption{the file: buildout.cfg}
+\label{buildout}
+\end{figure}
+
+Create a new directory and copy the  buildout.cfg file to it. Run the command \verbatim{buildout2.7} from that directory.
+
+
+\subsection{Postgresql preparation}
+Create a database a database called odin owned by your user. (Tip! use your system username for easier access.)
+  
+\begin{verbatim}  
+  $> sudo -u postgres psql
+  psql> create user <your_user_name> login;
+  psql> create database odin owner <your_user_name>;
+  psql> \q
+\end{verbatim}
+
+Install the datamodel.
+
+\begin{verbatim}  
+  $> bin/create_datamodel
+\end{verbatim}
+

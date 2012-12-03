@@ -5,16 +5,21 @@ from os.path import join
 
 setup(
     name='odincal',
-    version='0.0.3',
+    version='0.1.6',
     description = 'Odin calibration project',
     long_description=open("README.txt").read() + "\n" +
     open(join("docs", "CHANGELOG.txt")).read(),
 
-    packages = find_packages(exclude=['tests','db']),
+    packages = find_packages(exclude=['tests']),
     include_package_data=True,
     test_suite='tests',
-    zip_safe=True,
+    zip_safe=False,
+    package_data={
+        'db':['create.sql'],
+    },
     entry_points= {"console_scripts": [
+            'create_datamodel = db.admin_tools:create_datamodel',
+            'download_level0 = util.tools:download_level0',
             "ac2db = odincal.level0:ac2db",
             "fba2db = odincal.level0:fba2db",
             "att2db = odincal.level0:att2db",
