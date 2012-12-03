@@ -5,3 +5,7 @@ odincal.egg-info/
 parts/
 *.pyc
 develop-eggs/
+*~
+*.aux
+*.log
+*.toc
