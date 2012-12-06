@@ -17,7 +17,7 @@ module1 = Extension('oops.odin',
 )
 
 setup (name = 'oops',
-       version = '1.1',
+       version = '1.1.1',
        description="Python interface to the Odin C-library",
        packages = find_packages(),
        author="Michael Olberg",
