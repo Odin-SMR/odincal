@@ -226,7 +226,6 @@ class Level1b_cal:
             for i in range(nc-1,-1,-1):
                 if (mc[i] < Tmin or mc[i] > Tmax or 
                     abs((mc[i]-tsys)/tsys) > 0.02):
-                    pass
                     del cal[i]
 
         del mc
@@ -605,6 +604,8 @@ class Spectra:
         if data['sig_type']!='SIG':
             self.vgeo=0 
         self.tcal=data['hotloada']
+        if self.tcal==0:
+            self.tcal=data['hotloadb']
         self.freqres=1e6
         if data['sig_type']=='SIG':
             self.qerror=eval(data['qerror'].replace('{','(').replace('}',')'))
@@ -615,6 +616,8 @@ class Spectra:
         self.lofreq=data['lo']
         self.ssb=data['ssb']
         self.Tpll=data['imageloadb']
+        if self.Tpll==0:
+            self.Tpll=data['imageloada']
         self.current=data['mixc']
         self.type=data['sig_type']
         self.source=[]
@@ -742,18 +745,18 @@ def level1b_importer():
                    and backend='{2}'
                    '''.format(*temp))
 
-    result2=query.dictresult()
-    if result2[0]['max']==None:
+    result1=query.dictresult()
+    if result1[0]['max']==None:
         print 'no data from '+backend+' in orbit '+str(orbit)
         exit(0)
 
     #extract all necessary data for the orbit
-    temp=[result2[0]['min'],result2[0]['max'],backend,stwoff,soda]
-    #first "signal" data
+    temp=[result1[0]['min'],result1[0]['max'],backend,stwoff,soda]
     query=con.query('''select ac_level0.stw,backend,frontend,sig_type,
                        spectra,inttime,qerror,qachieved,
                        latitude,longitude,altitude,lo,ssb,
-                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo
+                       mixc,imageloada,imageloadb,hotloada,
+                       hotloadb,ssb_fq,mech_type,vgeo
                        from ac_level0
                        natural join ac_level1a
                        natural join shk_level1
@@ -763,21 +766,7 @@ def level1b_importer():
                        and backend='{2}' and soda={4}
                        order by ac_level0.stw'''.format(*temp))
     result=query.dictresult()
-    #now reference data 
-    query=con.query('''select ac_level0.stw,backend,frontend,sig_type,
-                       spectra,inttime,qerror,qachieved,
-                       latitude,longitude,altitude,lo,ssb,
-                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo
-                       from ac_level0
-                       natural join ac_level1a
-                       natural join shk_level1
-                       natural left join attitude_level1
-                       join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
-                       where ac_level0.stw>={0} and ac_level0.stw<={1}
-                       and backend='{2}' and sig_type='REF'
-                       order by ac_level0.stw'''.format(*temp))
-    resultb=query.dictresult()
-    result.extend(resultb)
+   
     if result==[]:
         print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit 
         exit(0)

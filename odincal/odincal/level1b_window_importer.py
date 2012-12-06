@@ -675,7 +675,7 @@ class Spectra:
         self.vgeo=data['vgeo']
         self.mode=data['mode']
         self.tcal=data['hotloada']
-        if self.cal==0:
+        if self.tcal==0:
             self.tcal=data['hotloadb']
         self.freqres=1e6
         if data['sig_type']=='SIG':
