@@ -180,7 +180,7 @@ ssb\underline{ }att  & integer[]                             & -\\
 ssb\underline{ }fq   & integer[]                             & the four lo freq. of the ssb modules\\
 prescaler            & integer                               & -\\
 inttime              & real                                  & -\\
-mode                 & integer                               & -\\
+mode                 & integer                               & correlator configuration\\
 acd\underline{ }mon  & bytea, shape=(8,2),dtype='float64'    & monitor data\\
 cc                   & bytea, shape=(8,96),dtype='float64'   & correlation coefficients\\[1ex]
 \hline
@@ -214,6 +214,7 @@ mech\underline{ }type & ('SK1','SK2','CAL') & -\\[1ex]
 Column & Type & Description \\ [0.5ex]
 \hline
 stw (key) & bigint             & - \\
+soda (key) & integer             & - \\
 year     & integer            & -\\
 mon     & integer            & -\\
 day     & integer            & -\\
@@ -245,7 +246,9 @@ stw (key) & bigint & - \\
 shk\underline{ }type (key) & ('LO495','LO549','LO555','LO572',  & lo freq.\\
  & 'SSB495','SSB549','SSB555','SSB572', & ssb tunings\\
  & 'mixC495','mixC549','mixC555','mixC572', & mixer current\\
- & 'imageloadB','hotloadA','hotloadB') & \\
+ & 'imageloadA','imageloadB','hotloadA','hotloadB' & temperatures\\  
+ & 'mixerA','mixerB','lnaA','lnaB' &  temperatures\\ 
+ & '119mixerA','119mixerB','warmifA','warmifB') & temperatures  \\
 shk\underline{ }value & real & -\\[1ex]
 \hline
 \end{tabular}
@@ -277,7 +280,8 @@ and these key-columns matches among these tables.
 Column & Type & Description \\ [0.5ex]
 \hline
  stw (key)  & bigint             & - \\
- backend (key) & ('AC1','AC2')      & - \\           
+ backend (key) & ('AC1','AC2')   & - \\
+ soda (key) & integer            & - \\
  mjd        & double precision   & - \\  
  lst        & real               & - \\   
  orbit      & double precision   & - \\   
@@ -316,12 +320,22 @@ Column & Type & Description \\ [0.5ex]
 \hline
  stw (key)       & bigint           & - \\
  backend (key)   & ('AC1','AC2')    & -\\ 
+ frontendsplit & ('549','495','572','555','SPL','119') & -\\
  lo         & real             & -\\ 
  ssb        & real             & -\\ 
  mixc       & real             & -\\  
- imageloadb & real             & -\\ 
+ imageloada & real             & -\\
+ imageloadb & real             & -\\
  hotloada   & real             & -\\ 
- hotloadb   & real             & -\\[1ex]
+ hotloadb   & real             & -\\
+ mixera     & real             & -\\
+ mixerb     & real             & -\\
+ lnaa       & real             & -\\
+ lnab       & real             & -\\
+ mixer119a  & real             & -\\
+ mixer119b  & real             & -\\
+ warmifa    & real             & -\\
+ warmifb    & real             & -\\[1ex]
 \hline
 \end{tabular}
 \label{table:shk1}
@@ -348,10 +362,10 @@ spectra & bytea, shape=(112*8,),dtype='float64' & spectrum in the \\
 \newpage
 
 \subsection{Level1b tables}
-ac\underline{ }level1b (contains target spectra) and
-ac\underline{ }cal\underline{ }level1b (contains sideband ratio 
-spectrum and calibration spectrum)
-contains processed level0 and level1 table data.
+ac\underline{ }level1b contains calibrated target spectra
+and also calibrated reference spectra.
+ac\underline{ }cal\underline{ }level1b contains sideband ratio 
+spectrum and calibration (tsys) spectrum.
 Level1b\underline{ }importer (further described in
 Sect.~\ref{sec:cal}) is responsible for
 importing data into these tables.
@@ -368,8 +382,9 @@ Column & Type & Description \\ [0.5ex]
  stw (key)               & bigint           & - \\
  backend (key)           & ('AC1','AC2')    & -\\
  version (key)            & integer          & -\\         
- intmode (key)           & integer          & -\\        
- spectra            & bytea,shape=(112*8,),dtype='float64' & calibrated spectrum\\       
+ intmode (key)           & integer          & -\\
+ soda (key)           & integer          & -\\
+ spectra            & bytea,shape=(channels,),dtype='float64' & calibrated spectrum\\       
  channels           & integer          & -\\          
  skyfreq            & double precision & -\\ 
  lofreq             & double precision & -\\ 
@@ -400,16 +415,18 @@ Column & Type & Description \\ [0.5ex]
  version (key)       & integer           & -\\
  spectype (key)      & ('CAL','SSB')         & -\\
  intmode (key)       & integer           & -\\
- spectra        & bytea             & shape=(112*8,),dtype='float64'\\
+ soda (key)       & integer           & -\\
+ spectra        & bytea             & shape=(channels,),dtype='float64'\\
  channels       & integer           & -\\
  skyfreq        & double precision  & -\\
  lofreq         & double precision  & -\\
  restfreq       & double precision  & -\\
  maxsuppression & double precision  & -\\
  sourcemode     & ('STRAT','ODD\underline{ }H','ODD\underline{ }N', & -\\
-& 'WATER','SUMMER','DYNAM')   & \\
+& 'WATER','SUMMER','DYNAM','N/A')   & \\
  freqmode       & integer           & -\\ 
- sbpath         & real              &\\[1ex]
+ sbpath         & real              &\\
+ tspill         & real              &\\[1ex]
 \hline
 \end{tabular}
 \label{table:ac1a}
@@ -436,8 +453,9 @@ $bin/shk_level1_importer
 $bin/att_level1_importer 17
 $bin/ac_level1a_importer
 \end{verbatim}
-All data that is available will be imported 
-into the different tables. 
+where the argument 17 means that only attitude data from soda version
+17 will be considered by the import script. All data that is available will 
+be imported into the different tables 
 
 The calibration of ac\underline{ }level1a data is then done by:
 \begin{verbatim}
@@ -445,16 +463,25 @@ $bin/level1b_importer orbit backend
 e.g.
 $bin/level1b_importer 8575 AC1
 \end{verbatim}
-Resulting data will be inserted in table ac\underline{ }level1b 
+using the old calibration scheme, or
+\begin{verbatim}
+$bin/level1b_window_importer orbitstart orbitend backend soda filter
+e.g.
+$bin/level1b_window_importer 8575 8577 AC1 17 1
+\end{verbatim}
+using an updated calibration scheme (Sect.~\ref{sec:cal}).
+Scans from AC1 that start within orbit 8575 to 8577 will be calibrated,    
+and resulting data will be inserted in table ac\underline{ }level1b 
 (calibrated spectra) and
 ac\underline{ }cal\underline{ }level1b (tsys and ssb spectra). 
-The old calibration procedure is performed based on data from
-one orbit, but ac\underline{ }cal\underline{ }level1b
-uses data from all scans that starts in an orbit.
-This means that there is a difference in which data
-that is considered in both the start and the end of the orbit
-(this is very easy to change). 
-level1b\underline{ }importer assumes that all data from the orbit
+%The old calibration procedure is performed based on data from
+%one orbit, but ac\underline{ }cal\underline{ }level1b
+%uses data from all scans that starts in an orbit.
+%This means that there is a difference in which data
+%that is considered in both the start and the end of the orbit
+%(this is very easy to change). 
+level1b\underline{ }window\underline{ }importer assumes that all data 
+from the orbits
 is imported into the database, but nothing is clearly done if not
 enough data is found.
  
@@ -475,16 +502,19 @@ The processing of ac\underline{ }level0 data
 to ac\underline{ }level1a (spectrum in the frequency domain)
 is partly described in \cite{notes}, and is in short given here :\\
 -- correlation coefficients from the eight correlator chips
-with 96 lags each are individually approximately inverted to
+with 96 lags each are individually (or in groups for cascade modes)
+approximately inverted to
 the true correlation (\(\rho\)) via Eq. 8 given in \cite{notes}.\\
 -- a Hanning smoothing is applied on \(\rho\)\\
 -- an optimised fast Fourier transform algorithm is then applied:
-\(\rho\) is padded with zeros to be of length 112.
-the original sequence data[0] ... data[111] is replaced by 
+For the standard aeronomy mode (no cascade)
+\(\rho\) is padded with zeros to be of length 112
+for each band.
+The original sequence data[0] ... data[111] is replaced by 
 data[0] ... data[111] 0.0 data[111] ... data[1], a sequence of length 
 224, which is a multiple of 32 that fits the applied Fourier transform.
 The resulting spectrum in the frequency domain is of length
-112.  
+112 for each band.
 
 
 \subsection{ac\underline{ }level1a to ac\underline{ }level1b}
@@ -580,19 +610,48 @@ T_{A,i}=\frac{1}{\eta}\left(\frac{(c^{A}_{i}-c^{S}_{i})<T_{sys}>}{c_{i}^{S}}+T_{
 This is consistent with Equations 4,5, and 6 in \cite{notes}. 
 \end{itemize}
 
-\subsection{A short comparison} 
-Figure~\ref{fig:odin1} shows a comparison with a randomly 
-selected intensity calibrated spectrum of the official
-level1b product. Differences are below 0.06 K,
-which we judged to be sufficiently small.
+\subsubsection{Modification of calibration scheme}
+The updated calibration scheme used in
+level1b\underline{ }window\underline{ }importer
+differs from the former in the following points:
+\begin{itemize}
+\item window-based instead of orbit based.\\
+That is, data from
+\(\pm\)45 minutes is used in the calibration procedure of each scan.
+\item filtering of calibration and reference spectra.\\
+- in nominal aeronomy mode three hot load measurements are performed
+in the turning points of the scans. Only the middle measurements are here
+used.\\
+- the first cold sky spectrum after a hot load spectrum is here always
+rejected.\\
+\item cold sky spectra are calibrated. Calibrated cold sky spectra around
+a target spectrum can potentially be used as a quality measure
+of the target spectrum.
+
+\item Tspill contribution is now calculated as the median of the
+median of all non-zero channels of high altitude measurements. 
+
+
+   
+\end{itemize}
+
+\subsection{A short consistency comparison} 
+Figure~\ref{fig:odin1} shows a simple comparison of
+a spectrum from the operational calibration processing
+and a spectrum using the code described in this text
+where we have tried to reproduce the former spectrum.
 For the match to be perfect, exactly the same data 
 from the orbit must be used, since the actual Tsys spectrum 
 used is the mean of all Tsys spectra from the orbit,
 and the baffle contribution is calulated from the median
-of the median of all high altitude spectra. 
-Therefore in Figure~\ref{fig:odin1}
-we have tried to do so by considering all data from the
-orbit and not all scans that starts in the orbit.
+of the median of all high altitude spectra.
+Therefore in Figure~\ref{fig:odin1} all data from the
+orbit was used in the calibration process of the spectrum.
+Differences are below 0.06 K,
+which we judged to be sufficiently small, in a sense that
+we have not introduced any possible additional errors in
+the calibration routine. 
+ 
 
 \begin{figure}[!t]
 \centering
@@ -607,32 +666,67 @@ Lower panel: difference from the official level1b product
 
 
 
-\section{Further development}
-level1b\underline{ }importer, which steers the level1b
-calibration, has been written to process data from scans
-that starts in the target orbit.
-The main function of this script starts basically by some
-SQL-queries to find out the start and end stw for the target orbit.
-With this information it is then easy to get all required
-data from the database tables.
-This means that to move away from the orbit based processing
-the main thing to change is the first queries.
+\subsection{Further development}
 
-The intensity calibration is performed by a python class
-named Level1b\underline{ }cal that can
-be found in the file level1b\underline{ }importer.py.
-This class has functions as for example:\\
--- calibrate, that controls the calibration\\
--- cleanref, that removes spurious cold sky spectrum\\
--- cleancal, that removes spurious hot load spectrum\\
--- gain, that calulates tsys spectrum\\
--- medTsys, that returns a mean Tsys spectrum of all acceptable
-Tsys spectrum\\ 
-calibrate1, that transform signal spectra into an antenna temperature
-scale.
+\begin{figure}[!t]
+\centering
+\includegraphics[scale=0.3]{ac1highalt.png}\\
+\caption{The upper panel show median of high altitude (60-120 km)
+spectra for different temperatures (hotload as a proxy)
+for AC1 stratospheric mode 2
+from 2009-08-24 to 2009-09-24.
+The lower panel shows fits to spectra in the upper panel.}
+\label{fig:ac1c}
+\end{figure}
+
+We know from earlier studies that both calibrated high and low altitude 
+spectra from AC1 and AC2 contains spectral features which not origin
+from atmospheric emission. Figure~\ref{fig:ac1c} shows
+calibrated high altitude spectra from AC1
+using the modified calibration routine. These spectra
+should be flat and at a level close 0 K, but they clearly are not flat. 
+Figure~\ref{fig:ac1c} also shows that the
+spectral pattern has a temperature dependence.
+This spectral features should come from that
+either the sky signal or the target signal is perturbed. Most likely it comes
+from ripple on the sky signal. Regardless where it comes from, it should be
+possible to remove this spectral feature in the calibration process.
+
+One way to remove these spectral features would be to:
+\begin{itemize}
+\item run the calibration routine as it is
+\item create a database table with average high and low altitude 
+spectra for different temperatures
+and for each mode of AC1 and AC2
+\item perform a second calibration step of the calibrated spectra
+\end{itemize}
  
-Laboration with the calibration scheme should not be extremely
-difficult.
+
+%level1b\underline{ }importer, which steers the level1b
+%calibration, has been written to process data from scans
+%that starts in the target orbit.
+%The main function of this script starts basically by some
+%SQL-queries to find out the start and end stw for the target orbit.
+%With this information it is then easy to get all required
+%data from the database tables.
+%This means that to move away from the orbit based processing
+%the main thing to change is the first queries.
+
+%The intensity calibration is performed by a python class
+%named Level1b\underline{ }cal that can
+%be found in the file level1b\underline{ }importer.py.
+%This class has functions as for example:\\
+%-- calibrate, that controls the calibration\\
+%-- cleanref, that removes spurious cold sky spectrum\\
+%-- cleancal, that removes spurious hot load spectrum\\
+%-- gain, that calulates tsys spectrum\\
+%-- medTsys, that returns a mean Tsys spectrum of all acceptable
+%Tsys spectrum\\ 
+%calibrate1, that transform signal spectra into an antenna temperature
+%scale.
+% 
+%Laboration with the calibration scheme should not be extremely
+%difficult.
   
 \section{Required packages and installation}
 \input{installation}
@@ -700,7 +794,7 @@ For AC2
 select ac_level0.stw,start,backend,sig_type,mech_type,altitude 
 from ac_level0 
 natural join fba_level0
-natural left join attitude_level1
+natural join attitude_level1
 natural join getscansac2() 
 where ac_level0.backend='AC2' and start>-1
 order by ac_level0.stw;
@@ -709,7 +803,7 @@ For AC1
 
 select ac_level0.stw,start,backend,sig_type,mech_type,altitude 
 from ac_level0 
-natural left join attitude_level1
+natural join attitude_level1
 natural join getscansac1() 
 join fba_level0 on (fba_level0.stw+1=ac_level0.stw)
 where ac_level0.backend='AC1' and start>-1
@@ -719,28 +813,32 @@ and can result in someting like:
 \begin{verbatim}
     stw     |   start    | backend | sig_type | mech_type | altitude 
 ------------+------------+---------+----------+-----------+----------
-  797607149 |  797607149 | AC2     | REF      | CAL       |         
-  797607213 |  797607149 | AC2     | SIG      | CAL       |  66394.2
-  797607277 |  797607149 | AC2     | REF      | CAL       |         
-  797607341 |  797607149 | AC2     | SIG      | SK2       |  60728.1
-  797607405 |  797607149 | AC2     | REF      | SK1       |         
-  797607469 |  797607149 | AC2     | SIG      | SK1       |  54946.1
-  797607533 |  797607149 | AC2     | REF      | SK1       |         
-  797607596 |  797607149 | AC2     | SIG      | SK1       |  49403.8
-                                     .
+ 797831517 | 797831517 | AC1     | SIG      | CAL       |  7744.23
+ 797831533 | 797831517 | AC1     | REF      | CAL       |  7606.69
+ 797831549 | 797831517 | AC1     | SIG      | CAL       |     8072
+ 797831565 | 797831517 | AC1     | REF      | CAL       |   8941.3
+ 797831581 | 797831517 | AC1     | SIG      | CAL       |   9876.7
+ 797831597 | 797831517 | AC1     | REF      | CAL       |  10767.3
+ 797831613 | 797831517 | AC1     | SIG      | SK2       |    11605
+ 797831629 | 797831517 | AC1     | REF      | SK2       |  12407.1
+ 797831645 | 797831517 | AC1     | SIG      | SK1       |  13184.4
+ 797831661 | 797831517 | AC1     | REF      | SK1       |  13950.6
+ 797831677 | 797831517 | AC1     | SIG      | SK1       |  14704.3
+                               .
                                      .
                                      .
 
-  797608300 |  797607149 | AC2     | SIG      | SK1       |  16571.3
-  797608332 |  797607149 | AC2     | REF      | SK1       |         
-  797608364 |  797607149 | AC2     | SIG      | SK1       |  13635.4
-  797608396 |  797607149 | AC2     | REF      | SK1       |         
-  797608428 |  797607149 | AC2     | SIG      | SK1       |  10608.7
-  797608460 |  797607149 | AC2     | REF      | SK1       |         
-  797608492 |  797608492 | AC2     | SIG      | CAL       |  8020.76
-  797608524 |  797608492 | AC2     | REF      | CAL       |         
-  797608556 |  797608492 | AC2     | SIG      | CAL       |  10532.8
-  797608588 |  797608492 | AC2     | REF      | CAL       |         
+ 797832604 | 797831517 | AC1     | SIG      | SK1       |    56279
+ 797832668 | 797831517 | AC1     | REF      | SK1       |  59183.6
+ 797832732 | 797831517 | AC1     | SIG      | SK1       |  62097.7
+ 797832796 | 797831517 | AC1     | REF      | SK1       |  64995.9
+ 797832860 | 797831517 | AC1     | SIG      | SK1       |  67880.1
+ 797832924 | 797832924 | AC1     | REF      | CAL       |    70724
+ 797832988 | 797832924 | AC1     | SIG      | CAL       |  69696.1
+ 797833052 | 797832924 | AC1     | REF      | CAL       |    66386
+ 797833116 | 797832924 | AC1     | SIG      | CAL       |  63483.4
+ 797833180 | 797832924 | AC1     | REF      | SK1       |  60660.3
+ 797833244 | 797832924 | AC1     | SIG      | SK1       |  57801.5 
 \end{verbatim}
 A scan is here defined as measurements between two hot load (CAL)
 measurements. 
@@ -748,8 +846,8 @@ These measurements are performed when the scanning turns,
 which can be seen in the altitude column.
 A scan is identified in the start column, which is the stw
 of the hot load measurement in the start of the scan. 
-In this examlpe AC2 data with stw 797607149 to 797608460
-belongs to scan 797607149. 
+In this examlpe AC1 data with stw 797831517 to 797832860
+belongs to scan 797831517. 
 \clearpage
 \newpage
 
