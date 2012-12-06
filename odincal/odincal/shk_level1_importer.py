@@ -71,6 +71,14 @@ def shk_level1_importer():
                                stw>{1}-2080 and stw<{1}+2080
                                order by stw'''.format(*sel[:]))
                 result=query.getresult()
+                if len(result)<2 and (shk=='mixerA' or shk=='mixerB' or
+                                      shk=='hotloadA' or shk=='hotloadB' or
+                                      shk=='lnaA' or shk=='lnaB' or
+                                      shk=='imageloadA' or shk=='imageloadB' or
+                                      shk=='119mixerA' or shk=='119mixerB' or
+                                      shk=='warmifA' or shk=='warmifB'):
+                    shkdict[shk.lower()]=0
+                    continue
                 if len(result)<2:
                     insert=0
                     break    
