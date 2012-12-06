@@ -675,6 +675,8 @@ class Spectra:
         self.vgeo=data['vgeo']
         self.mode=data['mode']
         self.tcal=data['hotloada']
+        if self.cal==0:
+            self.tcal=data['hotloadb']
         self.freqres=1e6
         if data['sig_type']=='SIG':
             self.qerror=eval(data['qerror'].replace('{','(').replace('}',')'))
@@ -685,6 +687,8 @@ class Spectra:
         self.lofreq=data['lo']
         self.ssb=data['ssb']
         self.Tpll=data['imageloadb']
+        if self.Tpll==0:
+            self.Tpll=data['imageloada'] 
         self.current=data['mixc']
         self.type=data['sig_type']
         self.source=[]
@@ -901,7 +905,8 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                        frontend,sig_type,
                        spectra,inttime,qerror,qachieved,
                        latitude,longitude,altitude,lo,ssb,
-                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo,mode,
+                       mixc,imageloadb,imageloada,hotloada,hotloadb,
+                       ssb_fq,mech_type,vgeo,mode,
                        frontendsplit
                        from ac_level0
                        natural join ac_level1a
@@ -919,7 +924,8 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                        frontend,sig_type,
                        spectra,inttime,qerror,qachieved,
                        latitude,longitude,altitude,lo,ssb,
-                       mixc,imageloadb,hotloada,ssb_fq,mech_type,vgeo,mode,
+                       mixc,imageloadb,imageloada,hotloada,hotloadb,
+                       ssb_fq,mech_type,vgeo,mode,
                        frontendsplit
                        from ac_level0
                        natural join ac_level1a
