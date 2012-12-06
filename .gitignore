@@ -1,7 +1,9 @@
 .installed.cfg
 bin/
 eggs/
-odincal.egg-info/
+build/
+dist/
+*.egg-info/
 parts/
 *.pyc
 develop-eggs/
