@@ -5,7 +5,7 @@ from os.path import join
 
 setup(
     name='odincal',
-    version='0.1.6',
+    version='0.1.9',
     description = 'Odin calibration project',
     long_description=open("README.txt").read() + "\n" +
     open(join("docs", "CHANGELOG.txt")).read(),
