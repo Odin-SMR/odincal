@@ -83,7 +83,7 @@ class Level1b_cal():
                 
             T = numpy.take(gain.data,numpy.nonzero(gain.data)[0])
             if T.shape[0] == 0:
-                return None
+                return None,VERSION,None
             s.tsys = numpy.add.reduce(T)/T.shape[0]
             d = numpy.take(s.data, numpy.nonzero(s.data))
             mean = numpy.add.reduce(d[0])/d[0].shape[0]
@@ -733,8 +733,8 @@ class Spectra:
                 
         if self.current < 0.25:
             #odin.Warn("low mixer current %5.2f" % (current))
-            if rx <> '572':
-                LOfreq = 0.0
+            if self.frontend <> '572':
+                self.lofreq = 0.0
         #else:
         #    IFfreq = 0.0
            #odin.Warn("LO frequency lookup failed")
