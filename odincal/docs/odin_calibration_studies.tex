@@ -1,0 +1,131 @@
+\documentclass[12pt]{article}
+%\usepackage{graphicx}
+\usepackage[pdftex]{graphicx}
+\usepackage{fancyhdr}
+\usepackage[latin1]{inputenc}
+\usepackage{moreverb}
+\usepackage{amssymb}
+%\usepackage[sectionbib]{natbib}
+\usepackage[english]{babel}
+\pagestyle{fancy}
+\begin{document}
+
+
+\fancyhead[LE,LO]{\includegraphics[height=13pt]{molflow.png}}
+\fancyhead[CE,CO]{}
+%\fancyhead[RE,RO]{\bfseries\nouppercase\leftmark}
+\fancyhead[RE,RO]{}
+\fancyfoot[LO,LE]{}
+\fancyfoot[RO,RE]{}
+\fancyfoot[CO,CE]{\thepage}
+\renewcommand{\footrulewidth}{0.4pt}
+\renewcommand{\headrulewidth}{0.4pt}
+
+
+
+
+\title{A level0 to level1b database for Odin-SMR\\
+       \vspace*{85mm}}
+\author{
+        Bengt Rydberg, bengt.rydberg@molflow.com\\
+        Joakim M\"{o}ller, joakim.moller@molflow.com\\
+        %Dept. of Geo and Space Sciences\\%\vspace*{10mm}
+        %Chalmers University of Technology\\
+        Gothenburg, Sweden\\
+        }
+%\date{Gothenburg, Sweden}
+
+\begin{titlepage}
+            \includegraphics[width=0.3\textwidth]{molflow.png}
+  \begin{flushright}
+    \noindent\rule{\textwidth}{2pt}
+    \vspace{1cm}
+    \begin{huge}
+      Calibration study of data from the  autocorrelators of Odin-SMR\\
+    \end{huge}
+      \vspace{1cm}
+   \today\\
+    \noindent\rule{\textwidth}{2pt}
+    \vspace{1cm}\\
+    \begin{minipage}[t]{0.3\textwidth}
+    \end{minipage}%
+    \begin{minipage}[t]{0.30\textwidth}
+        Joakim M\"{o}ller\\
+        Bengt Rydberg
+    \end{minipage}%
+    \begin{minipage}[t]{0.4\textwidth}
+      \begin{flushright}
+        joakim.moller@molflow.com
+        bengt.rydberg@molflow.com
+      \end{flushright}
+\end{minipage}
+  \vspace{8cm}
+\end{flushright}
+\end{titlepage}
+
+\makeatletter\@addtoreset{section}{part}\makeatother%
+%\renewcommand{\thepart}{\hbox to 4em{part \Roman{part}}}
+\renewcommand{\thepart}{Part \Roman{part}}
+\tableofcontents
+\thispagestyle{empty}
+\newpage
+\setcounter{page}{1}
+
+\graphicspath{{./figures/}}
+    
+%\chapter{Intro}
+%text...
+%\chapter{Background}
+\section{Overview}
+This report contains a collection of four individual smaller reports. 
+The topic of each report is related to the calibration process of 
+auto-correlator data from Odin-SMR.  
+
+\clearpage
+\newpage
+%\renewcommand{\thepart}{\Roman{part}}
+
+%\begin{part}{Zerolags, high altitude spectra, and sky signals}
+\part*{Part I \newline
+Zerolags, high altitude spectra, and sky signals}
+\addcontentsline{toc}{part}{Part I  \newline Zerolags, high altitude spectra, and sky signals }
+\fancyhead[RO,RE]{\bfseries Part I: Zerolags, high altitude spectra, and sky signals  }
+\setcounter{section}{0}
+\input{part1}
+
+\clearpage
+\newpage
+
+\part*{Part II \newline
+Spectral features and compensation}
+\addcontentsline{toc}{part}{Part II \newline Spectral features and compensation }
+\fancyhead[RO,RE]{\bfseries Part II: Spectral features and compensation  }
+\setcounter{section}{0}
+\input{part2}
+
+\clearpage
+\newpage
+
+
+\part*{Part III \newline
+Calibration of sky signals}
+\addcontentsline{toc}{part}{Part III \newline Calibration of sky signals }
+\fancyhead[RO,RE]{\bfseries Part III: Calibration of sky signals}
+\setcounter{section}{0}
+\input{part3}
+
+
+\clearpage
+\newpage
+
+\part*{Part IV \newline
+Reference interpolation }
+\addcontentsline{toc}{part}{Part IV \newline Reference interpolation }
+\fancyhead[RO,RE]{\bfseries Part IV: Reference interpolation}
+\setcounter{section}{0}
+\input{part4}
+
+
+%\clearpage
+%\newpage
+\end{document}
