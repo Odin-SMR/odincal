@@ -9,7 +9,7 @@ from odincal.reference_fit import Ref_fit
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin')
+        DB.__init__(self,dbname='odin_test')
 
 
 class Level1b_cal():
@@ -875,6 +875,7 @@ def level1b_importer():
        result2=query.dictresult()
        for index,row in enumerate(result2):
            tdiff=45*60*16
+           row['start']=797951415
            temp=[row['start'],tdiff]
            if backend=='AC1':
                query=con.query('''select min(stw),max(stw) from ac_level0
@@ -891,6 +892,7 @@ def level1b_importer():
            result3=query.dictresult()
            temp=[result3[0]['min'],result3[0]['max'],backend,stwoff,soda]
            print 'processing scan '+str(row['start'])+' nr '+str(index)+' of '+str(len(result2))
+           
            level1b_window_importer(backend,soda,con,temp,row['start'])
     else:
         temp=[result2[0]['min'],result2[0]['max'],backend,stwoff,soda]
