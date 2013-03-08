@@ -65,6 +65,7 @@ create table ac_level1a(
 create table ac_level1b(
    stw bigint,
    backend backend,
+   frontend frontend,
    version int,
    intmode int,
    soda int,
@@ -80,12 +81,13 @@ create table ac_level1b(
    efftime real,
    sbpath real,
    calstw bigint,
-   constraint pk_aclevel1b_data primary key (backend,stw,version,intmode,soda)
+   constraint pk_aclevel1b_data primary key (stw,backend,frontend,version,intmode,soda,sourcemode,freqmode)
 );
 
 create table ac_cal_level1b(
    stw bigint,
    backend backend,
+   frontend frontend,
    version int, 
    spectype spectype,
    intmode int,
@@ -100,7 +102,7 @@ create table ac_cal_level1b(
    freqmode int,
    sbpath real,
    tspill real,
-   constraint pk_accallevel1b_data primary key (backend,stw,version,spectype,intmode,soda)
+   constraint pk_accallevel1b_data primary key (stw,backend,frontend,version,spectype,intmode,soda,sourcemode,freqmode)
 );
 
 create table fba_level0(
