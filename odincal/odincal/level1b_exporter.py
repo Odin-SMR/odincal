@@ -67,7 +67,7 @@ def level1b_exporter():
                        ra2000,dec2000,vsource,qtarget,qachieved,qerror,
                        gpspos,gpsvel,sunpos,moonpos,sunzd,vgeo,vlsr,
                        ssb_fq,inttime,frontend,
-                       hotloada,lo
+                       hotloada,lo,sig_type
                        from ac_level1b
                        natural join attitude_level1
                        natural join ac_level0
@@ -119,6 +119,7 @@ def level1b_exporter():
     frontend=[]
     hotloada=[]
     lo=[]
+    sigtype=[]
     for res in result:
         stw.append(res['stw'])
         backend.append(res['backend'])
@@ -162,8 +163,12 @@ def level1b_exporter():
         frontend.append(res['frontend'])
         hotloada.append(res['hotloada'])
         lo.append(res['lo'])
+	if res['sig_type']=='REF':
+		sigtype.append(0)
+	else:
+	   	sigtype.append(1)	
     dtype1=[('Level', '>u2'), 
-            ('STW', '>u4'), ('MJD', '>f8'), ('Orbit', '>f8'), 
+            ('STW', '>u8'), ('MJD', '>f8'), ('Orbit', '>f8'), 
             ('LST', '>f4'), ('Source', '|S32'),   
             ('Frontend', '|S32'), ('Backend', '|S32'), 
             ('SkyBeamHit', '>i2'), ('RA2000', '>f4'), ('Dec2000', '>f4'), 
@@ -177,7 +182,7 @@ def level1b_exporter():
             ('LOFreq', '>f8'), ('SkyFreq', '>f8'), ('RestFreq', '>f8'), 
             ('MaxSuppression', '>f8'), ('FreqCal', '>f8', (4,)), 
             ('IntMode', '>i4'), ('IntTime', '>f4'), ('EffTime', '>f4'), 
-            ('Channels', '>i4'),]
+            ('Channels', '>i4'),('Sigtype','>i1'),]
     dtype2=[('Array','>f8', (len(spectra[0]),))]  
     dset1 = g.create_dataset("SMR", shape=(len(stw),1),dtype=dtype1)
     dset2 = g.create_dataset("SPECTRUM",data=spectra)
@@ -193,7 +198,8 @@ def level1b_exporter():
               tsys[ind],sbpath[ind],lofreq[ind],
               skyfreq[ind],restfreq[ind],
               maxsuppression[ind],ssb_fq[ind],intmode[ind],
-              inttime[ind],efftime[ind],channels[ind])
+              inttime[ind],efftime[ind],channels[ind],
+	      sigtype[ind],)
         dset1[ind]=data
        
     g.close()

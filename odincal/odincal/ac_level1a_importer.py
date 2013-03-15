@@ -5,6 +5,9 @@ from pg import DB
 import ctypes 
 from pkg_resources import resource_filename
 import matplotlib.pyplot as pyplt
+import psycopg2
+from StringIO import StringIO
+
 
 class db(DB):
     def __init__(self):
@@ -143,24 +146,16 @@ def get_seq(mode):
 
 def ac_level1a_importer():
     con=db()
-    query=con.query('''select stw,backend from
+    query=con.query('''select stw,backend,acd_mon,cc,mode from
                  ac_level0 
                  natural left join ac_level1a
-                 where spectra is Null order by stw''')
+                 where ac_level1a.stw is Null order by stw''')
     
     result=query.dictresult()
     ac=Level1a()
-    for ind,row in enumerate(result):
-        tempb=[row['stw'],row['backend']]
-        queryb=con.query('''select acd_mon,cc,mode from
-                           ac_level0 where  
-                           stw={0} and backend='{1}' '''.format(*tempb))
-        resultb=queryb.dictresult() 
-        rowb={'stw'      :row['stw'],
-              'backend'  :row['backend'],
-              'acd_mon'  :resultb[0]['acd_mon'],
-              'cc'       :resultb[0]['cc'],
-              'mode'     :resultb[0]['mode'],}
+    lines=[]
+    print len(result)
+    for ind,rowb in enumerate(result):
         acd_mon=numpy.ndarray(shape=(8,2),dtype='float64',
                               buffer=con.unescape_bytea(rowb['acd_mon']))
         cc=numpy.ndarray(shape=(8*96,),dtype='float64',
@@ -179,12 +174,30 @@ def ac_level1a_importer():
         for ind,band in enumerate(band_start):
             a[band*112:(band+len(chips[ind]))*112]=ac.got[ind]
         data=con.escape_bytea(abs(a).tostring())
-        temp={
-            'stw'         : row['stw'],
-            'backend'     : row['backend'],
-            'spectra'     : data,
-            }
-        con.insert('ac_level1a',temp)
+	line=(
+              str(rowb['stw'])        +':'+
+              str(rowb['backend'])    +':'+"\\"+
+              data                   +'\n')
+       	lines.append(line)
+	if ind==10000 or ind==20000 or ind==30000:
+		print ind
+    print 'insert'	
+
+        #con.insert('ac_level1a',temp)
+ 
+	
+    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+    cur = conn.cursor()
+    fgr=StringIO()
+    fgr.writelines(lines)
+    fgr.seek(0)
+    cur.execute("create temp table foo(stw bigint, backend backend, spectra bytea );")
+    cur.copy_from(file=fgr,table='foo', sep=':')
+    fgr.close()
+    cur.execute("insert into ac_level1a select * from foo as f where not exists (select * from ac_level1a where f.stw=ac_level1a.stw);")
+    conn.commit()
+    conn.close()
+
     con.close()
 
 
