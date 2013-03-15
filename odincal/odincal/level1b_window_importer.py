@@ -9,7 +9,7 @@ from odincal.reference_fit import Ref_fit
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin')
+        DB.__init__(self,dbname='odin',user='odinop',host='malachite',passwd='0d!n-cth')
 
 
 class Level1b_cal():
@@ -62,7 +62,6 @@ class Level1b_cal():
         ssb.type = 'SSB'
         ssb.data = self.ssbCurve(ssb)
         calibrated.append(ssb)
-
         for t in sig:
             s = copy.copy(t)
             stw = float(s.stw)
@@ -539,17 +538,19 @@ class Level1b_cal():
         Tbg = planck(2.7, f);
         spill = etaMS*Tbg - (etaMS-eta)*Tspill;
         data=numpy.zeros(shape=len(sig.data),)
-        for i in range(0,len(sig.data)):
-            data[i]=sig.data[i]-ref[i]
-            if (ref[i] > 0.0):
-                data[i]=data[i]/ref[i]
-                data[i]=data[i]*cal[i]
-                data[i] += spill
-                data[i] /= eta
-                
-            else: 
-                data[i] = 0.0
-        sig.data=data
+        #for i in range(0,len(sig.data)):
+        #    data[i]=sig.data[i]-ref[i]
+        #    if (ref[i] > 0.0):
+        #        data[i]=data[i]/ref[i]
+        #        data[i]=data[i]*cal[i]
+        #        data[i] += spill
+        #        data[i] /= eta
+        #        
+        #    else: 
+        #        data[i] = 0.0
+        sig.data=((sig.data-ref)/ref*cal+spill)/eta
+	sig.data[ref<=0.0]=0
+	#sig.data=data
         sig.type = 'SPE'
 
     def sortspec(self, spectra):
@@ -683,7 +684,7 @@ class Spectra:
             self.qachieved=eval(data['qachieved'].replace('{','(').replace('}',')'))
         self.inttime=data['inttime']
         self.intmode=511
-        self.skyfreq=[]
+        self.skyfreq=0
         self.lofreq=data['lo']
         self.ssb=data['ssb']
         self.Tpll=data['imageloadb']
@@ -803,24 +804,6 @@ def level1b_importer():
     soda=argv[4]
     ss=int(argv[5])
     con =db()
-
-    if ss==2:
-        stwoff=0
-        query=con.query('''select min(stw),max(stw) from
-                 ac_level1a
-                 natural join ac_level0
-                 where mode=1
-                 ''')
-        result2=query.dictresult()
-        temp=[result2[0]['min'],result2[0]['max']]
-        query=con.query('''select min(stw),max(stw) from ac_level0
-                       natural join getscansac2() 
-                       where start>={0} and start<={1}
-                       and backend='AC2' and mode=1
-                       '''.format(*temp))
-        result2=query.dictresult()
-        temp=[result2[0]['min'],result2[0]['max'],backend,stwoff,soda]
-        level1b_window_importer(backend,soda,con,temp,0)
     
     #find min and max stws from orbit
     keys=[orbit,soda,orbit2]
@@ -857,48 +840,28 @@ def level1b_importer():
     if result2[0]['max']==None:
         print 'no data from '+backend+' in orbit '+str(orbit)
         exit(0)
+    
 
-
-    if ss==1:
-       if backend=='AC1':
-           query=con.query('''select start from ac_level0 
+    if backend=='AC1':
+        query=con.query('''select start from ac_level0 
                     natural join getscansac1() 
                     natural join shk_level1
                     where start>={0} and start<={1}
-                    and backend='AC1' group by start'''.format(*temp))
-       if backend=='AC2':
-           query=con.query('''select start from ac_level0 
+                    and backend='AC1' group by start order by start'''.format(*temp))
+    if backend=='AC2':
+        query=con.query('''select start from ac_level0 
                     natural join getscansac2()
                     natural join shk_level1
                     where start>={0} and start<={1}
-                    and backend='AC2' group by start '''.format(*temp))
-       result2=query.dictresult()
-       for index,row in enumerate(result2):
-           tdiff=45*60*16
-           temp=[row['start'],tdiff]
-           if backend=='AC1':
-               query=con.query('''select min(stw),max(stw) from ac_level0
-                       natural join getscansac1() 
-                       natural join shk_level1 
-                       where start>={0}-{1} and start<={0}+{1} 
-                       and backend='AC1' '''.format(*temp))
-           if backend=='AC2':
-               query=con.query('''select min(stw),max(stw) from ac_level0
-                       natural join getscansac2()
-                       natural join shk_level1 
-                       where start>={0}-{1} and start<={0}+{1}
-                       and backend='AC2' '''.format(*temp))
-           result3=query.dictresult()
-           temp=[result3[0]['min'],result3[0]['max'],backend,stwoff,soda]
-           print 'processing scan '+str(row['start'])+' nr '+str(index)+' of '+str(len(result2))
-           level1b_window_importer(backend,soda,con,temp,row['start'])
-    else:
-        temp=[result2[0]['min'],result2[0]['max'],backend,stwoff,soda]
-        level1b_window_importer(backend,soda,con,temp,0)
-    con.close()
-def level1b_window_importer(backend,soda,con,temp,calstw):
-    #extract all necessary data for the orbit
-    #
+                    and backend='AC2' group by start order by start'''.format(*temp))
+    result2=query.dictresult()
+    firstscan=result2[0]['start']
+    lastscan=result2[len(result2)-1]['start']
+    tdiff=45*60*16
+    temp=[firstscan-tdiff,lastscan+tdiff,backend,stwoff,soda]
+  
+    #extract all necessary data for processing
+
     if backend=='AC1':
         query=con.query('''(
                        select ac_level0.stw,start,ssb_att,skybeamhit,cc,backend,
@@ -915,10 +878,10 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                        natural join getscansac1()
                        join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
                        where ac_level0.stw>={0} and ac_level0.stw<={1}
-                       and backend='{2}' and soda={4}
+                       and backend='{2}' and soda={4} and lo>1 
                        order by stw)'''.format(*temp))
     if backend=='AC2':
-        print temp
+        
         query=con.query('''(
                        select ac_level0.stw,start,ssb_att,skybeamhit,cc,backend,
                        frontend,sig_type,
@@ -935,26 +898,46 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                        join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
                        where ac_level0.stw>={0} and ac_level0.stw<={1}
                        and backend='{2}' and soda={4}
-                       and lo>0 
+                       and lo>1 
                        order by stw)'''.format(*temp))
          
     result=query.dictresult()
     print str(len(result))+' rows of data in database used for processing'
     if result==[]:
-        print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit 
-        exit(0)
+        print 'could not extract all necessary data for processing '+backend 
+        return
     
+        
+    for index,row in enumerate(result2):
+
+        print 'processing scan '+str(row['start'])+' nr '+str(index)+' of '+str(len(result2))
+        try:          
+	    result3=copy.deepcopy(result)
+            level1b_window_importer(result3,row['start'],tdiff,con,soda)
+        except:
+            pass
+
+    con.close()
+def level1b_window_importer(result,calstw,tdiff,con,soda):
+   
     #extract data from the "result" and do a frequency calibration
     listofspec=[]
     start=0
     remove_ref=0
     remove_ref2=0
     remove_next_ref=0
+    startspec=0
     for rowind,row in enumerate(result):
-        if rowind==0:
+        if row['start']>=calstw-tdiff and row['start']<=calstw+tdiff:
+            pass
+        else:
+            continue
+
+        if startspec==0:
             #do not use any calibration signals from first scan
             #since we do not have any reference signal before this measurement
             start0=row['start']
+            startspec=1
         if (row['sig_type']=='REF' and row['mech_type']=='CAL' and 
             row['start']==start0):
             remove_next_ref=1
@@ -994,7 +977,9 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
            row['sig_type']='CAL' 
         spec=Spectra(con,row,0)
         spec.tuning()
-        listofspec.append(spec)
+	if spec.lofreq<1:
+        	continue	
+	listofspec.append(spec)
         if row['sig_type']=='REF' and (row['mech_type']=='SK1' or
            row['mech_type']=='SK2' or row['mech_type']=='REF' ):
              row['sig_type']='SIG'
@@ -1012,8 +997,6 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
             aa.intmode=spec.intmode
             aa.frontend=spec.frontend
             (s1, s2) = aa.Split()
-            #df=numpy.array([eval(s1.frontend),eval(s2.frontend)])
-            #df=abs(df-spec.lofreq/1e9)
             if s1.frontend==row['frontendsplit']:
                 spec.data=s1.data
                 spec.intmode=s1.intmode
@@ -1022,9 +1005,6 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                 spec.data=s2.data
                 spec.intmode=s2.intmode
                 spec.frontend=s2.frontend
-        #frequency calibrate
-        #spec.tuning()
-        #listofspec.append(spec)
         
     #group data by frontend
     #frontend=['495', '549', '555', '572']
@@ -1033,6 +1013,8 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
         frontend.append(row.frontend)
     frontend=numpy.array(frontend)
     frontends=numpy.unique(frontend)
+    if len(frontends)==0:
+	return
     if len(frontends)==1:
         fe={frontends[0] : [],
             }
@@ -1069,13 +1051,12 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
         # prepend integer '0' and append integer 'len(fsky)'
         modes = numpy.concatenate((numpy.concatenate(([0], modes)), 
                                    [len(fsky)]))
-        
         for m in range(len(modes)-1):
-            start=int(modes[m])
+            start=int(modes[m]+1)
             stop=int(modes[m+1])
             #ac=Level1b_cal(spectra[start:stop],calstw,con)
             ac=Newer(spectra[start:stop],calstw,con)
-
+            
             #intensity calibrate
             (calibrated,VERSION,Tspill)=ac.calibrate()
             if calibrated==None:
@@ -1092,7 +1073,6 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                 #if s.ref==0:
                 #    continue
                 if ac.split:
-                    #do not use this for testing
                     #split data into two spectra
                     aa=odin.Spectrum()
                     aa.backend=s.backend
@@ -1106,12 +1086,16 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                 else:
                     specs.append(s)
 
+		insertcal=0
                 for spec in specs: 
+		   	 
                     #spec.data=spec.data[0:112]
                     if s.type=='SPE' and s.start==calstw:
+			insertcal=1
                         temp={
                     'stw'             :s.stw,
                     'backend'         :s.backend,
+	            'frontend'        :s.frontend,
                     'version'         :int(VERSION),
                     'intmode'         :spec.intmode,
                     'soda'            :soda,
@@ -1130,11 +1114,13 @@ def level1b_window_importer(backend,soda,con,temp,calstw):
                     }
                         
                         con.insert('ac_level1b',temp)
-
-                    elif s.type=='CAL' or s.type=='SSB' and s.stw==calstw:
+		for spec in specs:
+                    if s.type=='CAL' or s.type=='SSB' and insertcal==1:
+			print s.lofreq
                         temp={
                     'stw'             :s.stw,
                     'backend'         :s.backend,
+	            'frontend'        :s.frontend,
                     'version'         :int(VERSION),
                     'spectype'        :s.type,
                     'intmode'         :spec.intmode,

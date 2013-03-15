@@ -393,6 +393,7 @@ class ACfile(Level0File):
     def Type(self, words):
         rx = self.Frontend(words)
         chop = words[8]
+	type='NAN'
         if chop == 0xaaaa:
             if rx == '495' or rx == '549':
                 type = 'REF'
