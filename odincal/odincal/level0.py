@@ -7,18 +7,25 @@ from pg import DB,ProgrammingError
 from sys import argv
 from os.path import splitext,basename
 import matplotlib.pyplot as plt
+import psycopg2
+from StringIO import StringIO
+
+
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin')
+        DB.__init__(self,dbname='odin',user='odinop',host='localhost',passwd='***REMOVED***')
 
 
 def ac2db():
     if len(argv)>1:
         con = db()
         for datafile in argv[1:]:
+            print datafile
             stw_overflow= basename(datafile).startswith('1')
             extension = splitext(datafile)[1]
+            lines=[]
+            temptable=1
             if extension == '.ac1' or extension == '.ac2':
                 f = ACfile(datafile)
                 f2 = ACfile(datafile)
@@ -28,14 +35,46 @@ def ac2db():
                         discipline = getACdis(f2)
                         if stw_overflow:
                             datadict['stw']+=2**32
-                        dbdict = db_prep(datadict,con)
-                        if (dbdict['inttime']!=9999 and 
-                            discipline=='AERO'):    
-                            con.insert('ac_level0',dbdict)
+                        if (datadict['inttime']!=9999 and 
+                            discipline=='AERO'):
+                            dbdict = db_prep(datadict,con)
+                            line=(
+                                str(dbdict['stw'])        +':'+
+                                str(dbdict['backend'])    +':'+
+                                str(dbdict['frontend'])   +':'+ 
+                                str(dbdict['sig_type'])   +':'+ 
+                                str(dbdict['ssb_att'])    +':'+ 
+                                str(dbdict['ssb_fq'])     +':'+ 
+                                str(dbdict['prescaler'])  +':'+  
+                                str(dbdict['inttime'])    +':'+ 
+                                str(dbdict['mode'])       +':'+"\\"+
+                                str(dbdict['acd_mon'])    +':'+"\\"+
+                                str(dbdict['cc'])         +'\n')
+                            lines.append(line)
+                               
+                            #con.insert('ac_level0',dbdict)
                     except EOFError:
                         break
                     except ProgrammingError:
                         continue
+
+               
+                if temptable==1:
+                    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+                    cur = conn.cursor()
+                    fgr=StringIO()
+                    fgr.writelines(lines)
+                    fgr.seek(0)
+                    cur.execute("create temp table foo(stw bigint, backend backend, frontend frontend, sig_type signal_type, ssb_att int[4], ssb_fq int[4], prescaler int,inttime real, mode int, acd_mon bytea, cc bytea );")
+                    cur.copy_from(file=fgr,table='foo', sep=':')
+                    fgr.close()
+                    cur.execute("insert into ac_level0 select * from foo as f where not exists (select * from ac_level0 where f.stw=ac_level0.stw);")
+                    conn.commit()
+                    conn.close()
+                    
+
+
+
 def fba2db():
     if len(argv)>1:
         con = db()
@@ -44,17 +83,38 @@ def fba2db():
             extension = splitext(datafile)[1]
             if extension == '.fba':
                 f = FBAfile(datafile)
+                lines=[]
+                temptable=1
                 while 1:
                     try:
                         datadict = getFBA(f)
                         if stw_overflow:
                             datadict['stw']+=2**32
-                        con.insert('fba_level0',datadict)
+                        
+                        if temptable==1:
+                            line=str(datadict['stw'])+','+datadict['mech_type']+'\n'
+                            lines.append(line)
+                        else:
+                            con.insert('fba_level0',datadict)
                     except EOFError:
                         break
                     except ProgrammingError:
                         continue
-                        
+                if temptable==1:
+                    fgr=StringIO()
+                    fgr.writelines(lines)
+                    fgr.seek(0)
+                    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+		    cur = conn.cursor()
+                    cur.execute("create temp table foo( stw bigint, mech_type mech);")
+                    cur.copy_from(file=fgr,table='foo', sep=',')
+                    cur.execute("insert into fba_level0 select * from foo as f where not exists (select * from fba_level0 where f.stw=fba_level0.stw);")
+                    fgr.close()
+                    conn.commit()
+                    conn.close()
+
+
+
 def att2db():
     if len(argv)>1:
         con = db()
@@ -62,11 +122,45 @@ def att2db():
             extension = splitext(datafile)[1]
             if extension == '.att':
                 datalist=getATT(datafile)
+                lines=[]
+                temptable=1
                 for datadict in datalist:
+                    if temptable==1:
+                        line=(str(datadict['stw'])    +':'+
+                              str(datadict['soda'])   +':'+
+                              str(datadict['year'])   +':'+ 
+                              str(datadict['mon'])    +':'+ 
+                              str(datadict['day'])    +':'+ 
+                              str(datadict['hour'])   +':'+ 
+                              str(datadict['min'])    +':'+ 
+                              str(datadict['secs'])   +':'+ 
+                              str(datadict['orbit'])  +':'+  
+                              str(datadict['qt'])     +':'+ 
+                              str(datadict['qa'])     +':'+ 
+                              str(datadict['qe'])     +':'+ 
+                              str(datadict['gps'])    +':'+ 
+                              str(datadict['acs'])   +'\n')
+                        lines.append(line) 
                     try:
-                        con.insert('attitude_level0',datadict)
+                        pass
+                        #con.insert('attitude_level0',datadict)
                     except ProgrammingError:
                         continue
+
+                if temptable==1:
+                    fgr=StringIO()
+                    fgr.writelines(lines)
+                    fgr.seek(0)
+		    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+                    cur = conn.cursor()
+                    cur.execute("create temp table foo( stw bigint, soda int, year int, mon int,day int, hour int, min int,secs double precision,orbit double precision, qt double precision[4], qa double precision[4], qe double precision[3], gps double precision[6], acs double precision);")
+                    cur.copy_from(file=fgr,table='foo', sep=':')
+                    cur.execute("insert into attitude_level0 select * from foo as f where not exists (select * from attitude_level0 where f.stw=attitude_level0.stw);")
+                    fgr.close()
+                    conn.commit()
+                    conn.close()
+
+
 def shk2db():
     if len(argv)>1:
         con = db()
@@ -76,10 +170,8 @@ def shk2db():
             if extension == '.shk':
                 hk=SHKfile(datafile)
                 datadict=getSHK(hk)
-                #stwvec=numpy.array(stwvec)
-                #discipline=numpy.array(discipline)
-                #if stw_overflow:
-                #    stwvec+=2**32  
+                temptable=1
+                lines=[]
                 for data in datadict:
                     for index,stw in enumerate(datadict[data][0]):
                         if stw_overflow:
@@ -89,11 +181,29 @@ def shk2db():
                             'shk_type' :data,
                             'shk_value' :float(datadict[data][1][index]),
                             }
+                        line=str(stw)+','+str(data)+','+str(float(datadict[data][1][index]))+'\n'
+                        lines.append(line)
                         #if discipline[datainsert['stw']==stwvec]=='AERO':
                         try:  
-                            con.insert('shk_level0',datainsert)
+                            pass
+                            #con.insert('shk_level0',datainsert)
                         except ProgrammingError:
                             continue
+                
+                if temptable==1:
+                    fgr=StringIO()
+                    fgr.writelines(lines)
+                    fgr.seek(0)
+		    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+                    cur = conn.cursor()
+                    cur.execute("create temp table foo(stw bigint, shk_type shk_type,shk_value real );")
+                    cur.copy_from(file=fgr,table='foo', sep=',')
+                    cur.execute("insert into shk_level0 select * from foo as f where not exists (select * from shk_level0 where f.stw=shk_level0.stw);")
+                    fgr.close()
+                    conn.commit()
+                    conn.close()
+    
+
 def getSHK(hk):
     """use Ohlbergs code to read in shk data from file
         and creates a dictionary for easy insertation
