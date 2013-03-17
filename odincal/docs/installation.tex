@@ -41,5 +41,27 @@ The rsync tool is used to syncronise the level0 product tree with PDC.
 \begin{verbatim}
 # kinit must be manually initiation to make this work 'kinit --renewable -l 25h --afslog -f'
 47 */12 * * * kinit -R
-13 03 * * * rsync -rLe "ssh -o 'GSSAPIKeyExchange yes'"  donal@pisces.pdc.kth.se:/data/odin/level0/{ac1,ac2,att,shk,fba} /misc/pearl/odin/level0/
+#13 03 * * * rsync -T /tmp -aLKe "ssh -o 'GSSAPIKeyExchange yes'" --log-file=/home/odinop/odincal/rsync.log --exclude-from=.pdc_excludes donal@pisces.pdc.kth.se:/data/odin/level0/ /misc/pearl/odin/level0/
 \end{verbatim}
+
+The --exclude-from refers to a file containing rules for wich directories should be used to syncronisation.
+
+\begin{verbatim}
++ ac1/
++ ac1/*
++ *.ac1
++ ac2/
++ ac2/*
++ *.ac2
++ shk/
++ shk/*
++ *.shk
++ fba/
++ fba/*
++ *.fba
++ att/
++ att/*
++ *.att
+- *
+\end{verbatim}
+
