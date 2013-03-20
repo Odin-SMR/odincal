@@ -3,18 +3,21 @@ from oops import attitude
 
 import ctypes
 import numpy
-from pg import DB,ProgrammingError
+from pg import DB,ProgrammingError,escape_bytea
 from sys import argv
 from os.path import splitext,basename
 import matplotlib.pyplot as plt
 import psycopg2
 from StringIO import StringIO
-
-
+from odincal.config import config
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin',user='odinop',host='localhost',passwd='***REMOVED***')
+        DB.__init__(self,dbname=config.get('database','dbname'),
+                         user=config.get('database','user'),
+                         host=config.get('database','host'),
+                         passwd=config.get('database','password'),
+                         )
 
 
 def ac2db():
@@ -60,15 +63,18 @@ def ac2db():
 
                
                 if temptable==1:
-                    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+                    conn = psycopg2.connect(config.get('database','pgstring'))
                     cur = conn.cursor()
+                    df = open('dumpfile_old','w')
+                    df.writelines(lines)
+                    df.close()
                     fgr=StringIO()
                     fgr.writelines(lines)
                     fgr.seek(0)
-                    cur.execute("create temp table foo(stw bigint, backend backend, frontend frontend, sig_type signal_type, ssb_att int[4], ssb_fq int[4], prescaler int,inttime real, mode int, acd_mon bytea, cc bytea );")
-                    cur.copy_from(file=fgr,table='foo', sep=':')
+                    cur.execute("create table foo_old(stw bigint, backend backend, frontend frontend, sig_type signal_type, ssb_att int[4], ssb_fq int[4], prescaler int,inttime real, mode int, acd_mon bytea, cc bytea );")
+                    cur.copy_from(file=fgr,table='foo_old', sep=':')
                     fgr.close()
-                    cur.execute("insert into ac_level0 select * from foo as f where not exists (select * from ac_level0 where f.stw=ac_level0.stw);")
+                    cur.execute("insert into ac_level0 select * from foo_old as f where not exists (select * from ac_level0 where f.stw=ac_level0.stw);")
                     conn.commit()
                     conn.close()
                     
@@ -104,7 +110,7 @@ def fba2db():
                     fgr=StringIO()
                     fgr.writelines(lines)
                     fgr.seek(0)
-                    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+                    conn = psycopg2.connect(config.get('database','pgstring'))
 		    cur = conn.cursor()
                     cur.execute("create temp table foo( stw bigint, mech_type mech);")
                     cur.copy_from(file=fgr,table='foo', sep=',')
@@ -151,7 +157,7 @@ def att2db():
                     fgr=StringIO()
                     fgr.writelines(lines)
                     fgr.seek(0)
-		    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+                    conn = psycopg2.connect(config.get('database','pgstring'))
                     cur = conn.cursor()
                     cur.execute("create temp table foo( stw bigint, soda int, year int, mon int,day int, hour int, min int,secs double precision,orbit double precision, qt double precision[4], qa double precision[4], qe double precision[3], gps double precision[6], acs double precision);")
                     cur.copy_from(file=fgr,table='foo', sep=':')
@@ -194,7 +200,7 @@ def shk2db():
                     fgr=StringIO()
                     fgr.writelines(lines)
                     fgr.seek(0)
-		    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+                    conn = psycopg2.connect(config.get('database','pgstring'))
                     cur = conn.cursor()
                     cur.execute("create temp table foo(stw bigint, shk_type shk_type,shk_value real );")
                     cur.copy_from(file=fgr,table='foo', sep=',')
@@ -361,8 +367,8 @@ def getAC(ac):
             'backend': back,
             'frontend': ac.Frontend(head),
             'sig_type':ac.Type(head),
-            'ssb_att': "{{{},{},{},{}}}".format(*ac.Attenuation(head)),
-            'ssb_fq':"{{{},{},{},{}}}".format(*ac.SSBfrequency(head)),
+            'ssb_att': "{{{0},{1},{2},{3}}}".format(*ac.Attenuation(head)),
+            'ssb_fq':"{{{0},{1},{2},{3}}}".format(*ac.SSBfrequency(head)),
             'prescaler': prescaler,
             'inttime': IntTime,
             'mode':mode,
@@ -432,10 +438,10 @@ def getATT(file):
                 'secs'     :secs,
                 'stw'      :stw,
                 'orbit'    :orbit,
-                'qt'       :"{{{},{},{},{}}}".format(*qt),
-                'qa'       :"{{{},{},{},{}}}".format(*qa),
-                'qe'       :"{{{},{},{}}}".format(*qe),
-                'gps'      :"{{{},{},{},{},{},{}}}".format(*gps),
+                'qt'       :"{{{0},{1},{2},{3}}}".format(*qt),
+                'qa'       :"{{{0},{1},{2},{3}}}".format(*qa),
+                'qe'       :"{{{0},{1},{2}}}".format(*qe),
+                'gps'      :"{{{0},{1},{2},{3},{4},{5}}}".format(*gps),
                 'acs'      :acs,
                 'soda'     :int(ap.soda),
                 }
@@ -479,3 +485,52 @@ def get_seq(mode):
     band_start=numpy.array(band_start)
 
     return seq,chips,band_start
+
+
+
+
+def import_file(datafile):
+    con = db()
+    stw_overflow= basename(datafile).startswith('1')
+    extension = splitext(datafile)[1]
+    fgr = StringIO()
+    if extension == '.ac1' or extension == '.ac2':
+        f = ACfile(datafile)
+        f2 = ACfile(datafile)
+        while 1:
+            try:
+                datadict = getAC(f)
+                discipline = getACdis(f2)
+                if stw_overflow:
+                    datadict['stw']+=2**32
+                if (datadict['inttime']!=9999 and discipline=='AERO'):
+                    #create an import file to dump in data into db
+                    fgr.write(
+                        str(datadict['stw'])        +'\t'+
+                        str(datadict['backend'])    +'\t'+
+                        str(datadict['frontend'])   +'\t'+ 
+                        str(datadict['sig_type'])   +'\t'+ 
+                        str(datadict['ssb_att'])    +'\t'+ 
+                        str(datadict['ssb_fq'])     +'\t'+ 
+                        str(datadict['prescaler'])  +'\t'+  
+                        str(datadict['inttime'])    +'\t'+ 
+                        str(datadict['mode'])       +'\t'+
+                        '\\\\x' + datadict['acd_mon'].tostring().encode('hex') +'\t'+
+                        '\\\\x' + datadict['cc'].tostring().encode('hex') +'\n')
+            except EOFError:
+                break
+            except ProgrammingError:
+                continue
+        conn = psycopg2.connect(config.get('database','pgstring'))
+        cur = conn.cursor()
+        fgr.seek(0)
+        cur.execute("create temporary table foo ( like ac_level0 );")
+        cur.copy_from(file=fgr,table='foo')
+        fgr.close()
+        cur.execute("delete from  ac_level0 ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
+        cur.execute("insert into ac_level0 (select * from foo)")
+        conn.commit()
+        conn.close()
+    else:
+        pass
+   
