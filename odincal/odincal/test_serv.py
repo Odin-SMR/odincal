@@ -53,7 +53,7 @@ if __name__=='__main__':
     notifier = ThreadedNotifier(wm, handler)
     directory = '/misc/pearl/odin/level0'
     wdd = wm.add_watch(directory, IN_CREATE | IN_MOVED_TO, rec=True)
-    logger.info('watching {0}'.format(directory)
+    logger.info('watching {0}'.format(directory))
     notifier.start()
     while 1:
         try:
@@ -61,6 +61,7 @@ if __name__=='__main__':
             logger.debug(mark)
         except KeyboardInterrupt:
             logger.warn('C-c pressed exiting')
+            break
     queue.join()
     notifier.stop()
     logger.info('all jobs done.  normal exit')
