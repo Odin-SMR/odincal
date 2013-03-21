@@ -16,7 +16,7 @@ class db(DB):
         DB.__init__(self,dbname=config.get('database','dbname'),
                          user=config.get('database','user'),
                          host=config.get('database','host'),
-                         passwd=config.get('database','password'),
+                         passwd=config.get('database','passwd'),
                          )
 
 
