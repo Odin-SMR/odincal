@@ -62,6 +62,7 @@ if __name__=='__main__':
         except KeyboardInterrupt:
             logger.warn('C-c pressed exiting')
             break
+    logger.info('Waiting for worker to finish')
     queue.join()
     notifier.stop()
     logger.info('all jobs done.  normal exit')
