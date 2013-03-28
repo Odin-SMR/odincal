@@ -16,13 +16,14 @@ drop table attitude_level0 cascade;
 drop table attitude_level1 cascade;
 drop table shk_level0 cascade;
 drop table shk_level1 cascade;
-drop table process cascade;
+drop table in_process cascade;
+drop table processed cascade;
 
 create type backend as enum ('AC1','AC2');
 create type signal_type as enum ('REF','SIG');
 create type frontend as enum ('549','495','572','555','SPL','119');
 create type mech as enum ('REF','SK1','CAL','SK2');
-create type scan as (start bigint, stw bigint);
+create type scan as (start bigint, stw bigint,mech_type mech);
 create type shk_type as enum ('LO495','LO549','LO555','LO572','SSB495','SSB549','SSB555','SSB572','mixC495','mixC549','mixC555','mixC572','imageloadA','imageloadB','hotloadA','hotloadB','mixerA','mixerB','lnaA','lnaB','119mixerA','119mixerB','warmifA','warmifB');
 
 create type sourcemode as enum ('STRAT','ODD_H','ODD_N','WATER','SUMMER',
@@ -31,14 +32,21 @@ create type sourcemode as enum ('STRAT','ODD_H','ODD_N','WATER','SUMMER',
 create type spectype as enum ('SIG','REF','CAL','CMB','DRK','SK1','SK2','SPE',
 'SSB','AVE');
 
-create table process(
-   orbit int,
-   backend backend,
-   stws bytea,
-   stws_shape varchar,
-   processed int,
-   constraint pk_process_data primary key (orbit,backend)
+create table in_process(
+   file varchar,
+   created timestamp default current_timestamp,
+   constraint pk_in_process_data primary key (file)
 );
+
+create table processed(
+   file varchar,
+   total_scans int,
+   success_scans int,
+   info varchar,
+   created timestamp default current_timestamp,
+   constraint pk_processed_data primary key (file)
+);
+
 
 create table ac_level0(
    stw bigint,
@@ -51,7 +59,9 @@ create table ac_level0(
    inttime real,
    mode int,
    acd_mon bytea,
-   cc bytea,
+   cc bytea, 
+   file varchar,
+   created timestamp default current_timestamp,
    constraint pk_ac_data primary key (backend,stw)
 );
 
@@ -59,6 +69,7 @@ create table ac_level1a(
    stw bigint,
    backend backend,
    spectra bytea,
+   created timestamp default current_timestamp,
    constraint pk_aclevel1a_data primary key (backend,stw)
 );
 
@@ -81,6 +92,7 @@ create table ac_level1b(
    efftime real,
    sbpath real,
    calstw bigint,
+   created timestamp default current_timestamp,
    constraint pk_aclevel1b_data primary key (stw,backend,frontend,version,intmode,soda,sourcemode,freqmode)
 );
 
@@ -102,12 +114,15 @@ create table ac_cal_level1b(
    freqmode int,
    sbpath real,
    tspill real,
+   created timestamp default current_timestamp,
    constraint pk_accallevel1b_data primary key (stw,backend,frontend,version,spectype,intmode,soda,sourcemode,freqmode)
 );
 
 create table fba_level0(
    stw bigint,
    mech_type mech,
+   file varchar,
+   created timestamp default current_timestamp,
    constraint pk_fba_level0 primary key (stw)
 );
 
@@ -126,6 +141,8 @@ create table attitude_level0(
    qe double precision[3],
    gps double precision[6],
    acs double precision,
+   file varchar,
+   created timestamp default current_timestamp,
    constraint pk_attitudelevel0_data primary key (stw,soda)
 );
 
@@ -154,6 +171,7 @@ create table attitude_level1(
    vgeo real,
    vlsr real,   
    alevel int,
+   created timestamp default current_timestamp,
    constraint pk_attitudelevel1_data primary key (stw,backend,soda)
 );
 
@@ -161,6 +179,8 @@ create table shk_level0(
    stw bigint,
    shk_type shk_type,
    shk_value real,
+   file varchar,
+   created timestamp default current_timestamp,
    constraint pk_shklevel0_data primary key (stw,shk_type)
 );
 
@@ -184,6 +204,7 @@ create table shk_level1(
    mixer119B real,
    warmifA real,
    warmifB real,
+   created timestamp default current_timestamp,
    constraint pk_shklevel1_data primary key (stw,backend,frontendsplit)
 );
 
@@ -216,17 +237,18 @@ begin
 end;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.getscansac1()
+CREATE OR REPLACE FUNCTION public.getscansac1(stw0 bigint,stw1 bigint)
  RETURNS SETOF scan
  LANGUAGE plpgsql
 AS $function$
 declare
    spectrum_curs cursor for select fba_level0.stw,mech_type from fba_level0 
    join ac_level0 on (fba_level0.stw+1=ac_level0.stw)
+   where ac_level0.stw>=stw0 and ac_level0.stw<=stw1
    order by stw;
    res scan%rowtype;
    prev_mech fba_level0.mech_type%type;
-   scanstart fba_level0.stw%type;
+   scanstart fba_level0.stw%type;   
 begin
    prev_mech:='SK1';
    scanstart:=-2;
@@ -237,6 +259,7 @@ begin
       end if;
       res.start:=scanstart+1;
       res.stw:=r.stw+1;
+      res.mech_type=r.mech_type;
       prev_mech:=r.mech_type; 
       return next res;
    end loop;

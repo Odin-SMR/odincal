@@ -5,8 +5,8 @@ import ctypes
 import numpy
 from pg import DB,ProgrammingError,escape_bytea
 from sys import argv
-from os.path import splitext,basename
-import matplotlib.pyplot as plt
+from os.path import splitext,basename,split
+#import matplotlib.pyplot as plt
 import psycopg2
 from StringIO import StringIO
 from odincal.config import config
@@ -516,7 +516,8 @@ def import_file(datafile):
                         str(datadict['inttime'])    +'\t'+ 
                         str(datadict['mode'])       +'\t'+
                         '\\\\x' + datadict['acd_mon'].tostring().encode('hex') +'\t'+
-                        '\\\\x' + datadict['cc'].tostring().encode('hex') +'\n')
+                        '\\\\x' + datadict['cc'].tostring().encode('hex') +'\t'+
+                        str(split(datafile)[1])     +'\n')
             except EOFError:
                 break
             except ProgrammingError:
@@ -531,6 +532,89 @@ def import_file(datafile):
         cur.execute("insert into ac_level0 (select * from foo)")
         conn.commit()
         conn.close()
+
+    elif extension == '.fba':
+        f = FBAfile(datafile)
+        while 1:
+            try:
+                datadict = getFBA(f)
+                if stw_overflow:
+                    datadict['stw']+=2**32
+                #create an import file to dump in data into db
+                fgr.write(
+                        str(datadict['stw'])            +'\t'+
+                        str(datadict['mech_type'])      +'\t'+
+                        str(split(datafile)[1])         +'\n')
+            except EOFError:
+                break
+            except ProgrammingError:
+                continue
+               
+        conn = psycopg2.connect(config.get('database','pgstring'))
+        cur = conn.cursor()
+        fgr.seek(0)
+        cur.execute("create temporary table foo ( like fba_level0 );")
+        cur.copy_from(file=fgr,table='foo')
+        fgr.close()
+        cur.execute("delete from  fba_level0 fba using foo f where f.stw=fba.stw")
+        cur.execute("insert into fba_level0 (select * from foo)")
+        conn.commit()
+        conn.close()
+
+    elif extension == '.att':
+        datalist=getATT(datafile)
+        for datadict in datalist:
+            fgr.write(str(datadict['stw'])    +'\t'+
+                      str(datadict['soda'])   +'\t'+
+                      str(datadict['year'])   +'\t'+ 
+                      str(datadict['mon'])    +'\t'+ 
+                      str(datadict['day'])    +'\t'+ 
+                      str(datadict['hour'])   +'\t'+ 
+                      str(datadict['min'])    +'\t'+ 
+                      str(datadict['secs'])   +'\t'+ 
+                      str(datadict['orbit'])  +'\t'+  
+                      str(datadict['qt'])     +'\t'+ 
+                      str(datadict['qa'])     +'\t'+ 
+                      str(datadict['qe'])     +'\t'+ 
+                      str(datadict['gps'])    +'\t'+
+                      str(datadict['acs'])    +'\t'+
+                      str(split(datafile)[1]) +'\n')
+                        lines.append(line) 
+
+        conn = psycopg2.connect(config.get('database','pgstring'))
+        cur = conn.cursor()
+        fgr.seek(0)
+        cur.execute("create temporary table foo ( like attitude_level0 );")
+        cur.copy_from(file=fgr,table='foo')
+        fgr.close()
+        cur.execute("delete from  attitude_level0 att using foo f where f.stw=att.stw")
+        cur.execute("insert into attitude_level0 (select * from foo)")
+        conn.commit()
+        conn.close()
+
+    elif extension == '.shk':
+        hk=SHKfile(datafile)
+        datadict=getSHK(hk)
+        for data in datadict:
+            for index,stw in enumerate(datadict[data][0]):
+                if stw_overflow:
+                    stw+=2**32  
+                fgr.write( str(stw)                              +'\t'+
+                           str(data)                             +'\t'+
+                           str(float(datadict[data][1][index]))  +'\t'+
+                           str(split(datafile)[1])               +'\n')
+                     
+        conn = psycopg2.connect(config.get('database','pgstring'))
+        cur = conn.cursor()
+        fgr.seek(0)
+        cur.execute("create temporary table foo ( like shk_level0 );")
+        cur.copy_from(file=fgr,table='foo')
+        fgr.close()
+        cur.execute("delete from  shk_level0 shk using foo f where f.stw=shk.stw")
+        cur.execute("insert into shk_level0 (select * from foo)")
+        conn.commit()
+        conn.close()
+    
     else:
         pass
-   
+            
