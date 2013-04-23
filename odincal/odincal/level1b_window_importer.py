@@ -6,11 +6,15 @@ from pg import DB
 from sys import stderr,stdout,stdin,argv,exit
 import matplotlib.pyplot as pyplt
 from odincal.reference_fit import Ref_fit
+from odincal.ac_level1a_importer import ac_level1a_importer
+from odincal.att_level1_importer import att_level1_importer
+from odincal.shk_level1_importer import shk_level1_importer
+
 
 class db(DB):
     def __init__(self):
         DB.__init__(self,dbname='odin',user='odinop',host='malachite',passwd='0d!n-cth')
-
+        #DB.__init__(self,dbname='odin_test')
 
 class Level1b_cal():
     """A class that can perform intensity calibration of level 1a spectra"""
@@ -792,79 +796,101 @@ class Newer(Level1b_cal):
     #    return self.ref_fit.interp(mstw, m, stw, inttime, start)
 
 
+
+
+
+
 def level1b_importer():
     
-    if len(argv)!=6:
-        print 'error in function call, example usage: bin/ipython level1b_importer 46370(orbit1) 46372(orbit2)  AC2(backend) soda(version) filter'
+    if len(argv)!=4:
+        print 'error in function call, example usage: bin/ipython level1b_importer acfile  AC2(backend) filter'
         exit(0)
 
-    orbit=argv[1] #59715
-    orbit2=argv[2]
-    backend=argv[3] #AC2
-    soda=argv[4]
-    ss=int(argv[5])
+    acfile=argv[1]
+    backend=argv[2]
+    ss=int(argv[3])
     con =db()
-    
-    #find min and max stws from orbit
-    keys=[orbit,soda,orbit2]
+
+    #find min and max stws from acfile
+    keys=[acfile]
     query=con.query('''select min(stw),max(stw)
-                       from attitude_level1 where
-                       floor(orbit)>={0} and floor(orbit)<={2} and soda={1}'''.format(*keys))
+                       from ac_level0 where file='{0}' '''.format(*keys))
     result1=query.dictresult()
-    if result1[0]['max']==None:
-        print 'no attitude data from orbit '+str(orbit)
+    sodakeys=[result1[0]['min'],result1[0]['max']]
+    sodaquery=con.query('''select soda 
+                       from attitude_level0 where stw>{0} and stw<{1} 
+                       group by soda'''.format(*sodakeys))
+    sodaresult=sodaquery.dictresult()
+    if sodaresult==[]:
+        tempfile=[acfile]
+        con.query('''delete from in_process 
+                     where file='{0}' '''.format(*tempfile))
+        processtemp={'file':acfile,'info':'no attitude data',
+                     'total_scans':0,'success_scans':0}
+        con.insert('processed',processtemp)
         exit(0)
-    #find out which scans that starts in the orbit
+
+    soda=sodaresult[0]['soda']   
+    
+    tdiff=45*60*16
+
+    if ss==1:
+        
+        #attitude import 
+        att_level1_importer(result1[0]['min']-tdiff,result1[0]['max']+tdiff,
+                        sodaresult[0]['soda'],backend)
+    
+        #shk import
+        shk_level1_importer(result1[0]['min']-tdiff,result1[0]['max']+tdiff,backend)
+
+        #ac level1a import
+        ac_level1a_importer(result1[0]['min']-tdiff,result1[0]['max']+tdiff,backend)
+    
+    #find out which scans that starts in the file
     if backend=='AC1':
         stwoff=1
     else:
         stwoff=0
     temp=[result1[0]['min'],result1[0]['max'],backend,stwoff]
         
-    if backend=='AC1':
-        query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
-                   from ac_level0 
-                   natural join getscansac1() 
-                   natural join shk_level1
-                   where start>={0} and start<={1}
-                   '''.format(*temp))
-    if backend=='AC2':
-        query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
-                   from ac_level0 
-                   natural join getscansac2()
-                   natural join shk_level1
-                   where start>={0} and start<={1}
-                   '''.format(*temp))
-
-    result2=query.dictresult()
-    if result2[0]['max']==None:
-        print 'no data from '+backend+' in orbit '+str(orbit)
-        exit(0)
-    
 
     if backend=='AC1':
         query=con.query('''select start from ac_level0 
-                    natural join getscansac1() 
-                    natural join shk_level1
+                    natural join getscansac1({0},{1}) 
+                    join shk_level1 using(stw,backend)
                     where start>={0} and start<={1}
                     and backend='AC1' group by start order by start'''.format(*temp))
+
     if backend=='AC2':
         query=con.query('''select start from ac_level0 
-                    natural join getscansac2()
-                    natural join shk_level1
+                    natural join getscansac2({0},{1})
+                    join shk_level1 using(stw,backend)
                     where start>={0} and start<={1}
                     and backend='AC2' group by start order by start'''.format(*temp))
     result2=query.dictresult()
+    if result2==[]:
+        tempfile=[acfile]
+        con.query('''delete from in_process 
+                     where file='{0}' '''.format(*tempfile))
+        processtemp={'file':acfile,'info':'no scans found in file',
+                     'total_scans':0,'success_scans':0}
+        con.insert('processed',processtemp)
+        return
+    
+
+    success_scans=0
+    total_scans=len(result2)
     firstscan=result2[0]['start']
     lastscan=result2[len(result2)-1]['start']
-    tdiff=45*60*16
-    temp=[firstscan-tdiff,lastscan+tdiff,backend,stwoff,soda]
-  
+    
+    temp=[firstscan-tdiff,lastscan+tdiff,backend,stwoff,sodaresult[0]['soda']]
     #extract all necessary data for processing
 
     if backend=='AC1':
+
         query=con.query('''(
-                       select ac_level0.stw,start,ssb_att,skybeamhit,cc,backend,
+                       select ac_level0.stw,start,ssb_att,skybeamhit,cc,
+                       ac_level0.backend,
                        frontend,sig_type,
                        spectra,inttime,qerror,qachieved,
                        latitude,longitude,altitude,lo,ssb,
@@ -872,18 +898,20 @@ def level1b_importer():
                        ssb_fq,mech_type,vgeo,mode,
                        frontendsplit
                        from ac_level0
-                       natural join ac_level1a
-                       natural join shk_level1
-                       natural join attitude_level1
-                       natural join getscansac1()
-                       join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
+                       natural join getscansac1({0},{1})
+                       join ac_level1a using (backend,stw)
+                       join shk_level1 using (backend,stw)
+                       join attitude_level1 using (backend,stw)
                        where ac_level0.stw>={0} and ac_level0.stw<={1}
-                       and backend='{2}' and soda={4} and lo>1 
+                       and ac_level0.backend='{2}' and soda={4} and lo>1 
                        order by stw)'''.format(*temp))
+      
+
     if backend=='AC2':
         
         query=con.query('''(
-                       select ac_level0.stw,start,ssb_att,skybeamhit,cc,backend,
+                       select ac_level0.stw,start,ssb_att,skybeamhit,cc,
+                       ac_level0.backend,
                        frontend,sig_type,
                        spectra,inttime,qerror,qachieved,
                        latitude,longitude,altitude,lo,ssb,
@@ -891,22 +919,26 @@ def level1b_importer():
                        ssb_fq,mech_type,vgeo,mode,
                        frontendsplit
                        from ac_level0
-                       natural join ac_level1a
-                       natural join shk_level1
-                       natural join attitude_level1
-                       natural join getscansac2()
-                       join fba_level0 on (fba_level0.stw+{3}=ac_level0.stw)
+                        natural join getscansac2({0},{1})
+                       join ac_level1a using(stw,backend)
+                       join shk_level1 using(stw,backend)
+                       join attitude_level1 using(stw,backend)
                        where ac_level0.stw>={0} and ac_level0.stw<={1}
-                       and backend='{2}' and soda={4}
+                       and ac_level0.backend='{2}' and soda={4}
                        and lo>1 
                        order by stw)'''.format(*temp))
          
     result=query.dictresult()
     print str(len(result))+' rows of data in database used for processing'
     if result==[]:
+        tempfile=[acfile]
+        con.query('''delete from in_process 
+                     where file='{0}' '''.format(*tempfile))
+        processtemp={'file':acfile,'info':'necessary data not available',
+                     'total_scans':0,'success_scans':0}
+        con.insert('processed',processtemp)
         print 'could not extract all necessary data for processing '+backend 
         return
-    
         
     for index,row in enumerate(result2):
 
@@ -914,10 +946,18 @@ def level1b_importer():
         try:          
 	    result3=copy.deepcopy(result)
             level1b_window_importer(result3,row['start'],tdiff,con,soda)
+            success_scans=success_scans+1
         except:
             pass
 
+    tempfile=[acfile]
+    con.query('''delete from in_process 
+                     where file='{0}' '''.format(*tempfile))
+    processtemp={'file':acfile,
+                     'total_scans':total_scans,'success_scans':success_scans}
+    con.insert('processed',processtemp)
     con.close()
+
 def level1b_window_importer(result,calstw,tdiff,con,soda):
    
     #extract data from the "result" and do a frequency calibration
