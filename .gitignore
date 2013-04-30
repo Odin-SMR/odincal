@@ -12,6 +12,7 @@ develop-eggs/
 *.log
 *.toc
 *.so
+*.o
 include/
 local/
 lib/
