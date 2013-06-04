@@ -1,12 +1,12 @@
-from oops import odin
+from odin import odin
 import numpy
 from pg import DB
 from sys import stderr,stdout,stdin,argv,exit
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin')
-
+        #DB.__init__(self,dbname='odin_test')
+	DB.__init__(self,dbname='odin',user='odinop',host='localhost',passwd='0d!n-cth')
 
 def djl(year, mon, day, hour, min, secs):
         dn = 367L*year - 7*(year+(mon+9)/12)/4 \
@@ -15,14 +15,18 @@ def djl(year, mon, day, hour, min, secs):
         jd = float(dn)-0.5+(hour+(min+secs/60.0)/60.0)/24.0
         return jd
 
-def att_level1_importer():
-    soda=argv[1]
+def att_level1_importer(stwa,stwb,soda,backend):
+    #soda=argv[1]
+    temp=[stwa,stwb,soda,backend]
     con =db()
-    query=con.query('''select stw,backend,inttime from ac_level0
-                       natural left join attitude_level1 
-                       where (soda is NULL or soda!={0})
-                       order by stw'''.format(soda))
+    query=con.query('''select ac_level0.stw,ac_level0.backend,
+                       inttime from ac_level0
+                       left join attitude_level1 using (stw) 
+                       where (soda is NULL or soda!={2})
+                       and ac_level0.stw>={0} and ac_level0.stw<={1}
+                       and ac_level0.backend='{3}' '''.format(*temp))
     sigresult=query.dictresult()
+    print len(sigresult)
     for sig in sigresult:
         keys=[sig['stw'],soda]
 	query=con.query('''select year,mon,day,hour,min,secs,stw,
