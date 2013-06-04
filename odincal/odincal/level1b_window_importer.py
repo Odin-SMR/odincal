@@ -1,6 +1,6 @@
 import numpy
 import copy
-from oops import odin
+from odin import odin
 import pg
 from pg import DB
 from sys import stderr,stdout,stdin,argv,exit
@@ -1126,12 +1126,10 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
                 else:
                     specs.append(s)
 
-		insertcal=0
                 for spec in specs: 
 		   	 
                     #spec.data=spec.data[0:112]
                     if s.type=='SPE' and s.start==calstw:
-			insertcal=1
                         temp={
                     'stw'             :s.stw,
                     'backend'         :s.backend,
@@ -1155,7 +1153,7 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
                         
                         con.insert('ac_level1b',temp)
 		for spec in specs:
-                    if s.type=='CAL' or s.type=='SSB' and insertcal==1:
+                    if s.type=='CAL' or s.type=='SSB':
 			print s.lofreq
                         temp={
                     'stw'             :s.stw,
