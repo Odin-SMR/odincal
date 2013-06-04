@@ -8,7 +8,7 @@ from pkg_resources import resource_filename
 import logging
 import logging.config
 
-from odincal.level0 import import_file
+from odincal.level0_file_importer import import_file
 
 class EventHandler(ProcessEvent):
     def __init__(self):

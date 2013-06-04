@@ -18,6 +18,11 @@ drop table shk_level0 cascade;
 drop table shk_level1 cascade;
 drop table in_process cascade;
 drop table processed cascade;
+drop table level0_files cascade;
+drop table level0_files_imported cascade;
+drop table level0_files_in_process cascade;
+
+
 
 create type backend as enum ('AC1','AC2');
 create type signal_type as enum ('REF','SIG');
@@ -34,7 +39,7 @@ create type spectype as enum ('SIG','REF','CAL','CMB','DRK','SK1','SK2','SPE',
 
 create table in_process(
    file varchar,
-   created timestamp default current_timestamp,
+   created timestamp,
    constraint pk_in_process_data primary key (file)
 );
 
@@ -46,6 +51,28 @@ create table processed(
    created timestamp default current_timestamp,
    constraint pk_processed_data primary key (file)
 );
+
+
+create table level0_files(
+   file varchar,
+   measurement_date date,
+   created timestamp,
+   constraint pk_level0_files_data primary key (file)
+);
+
+create table level0_files_imported(
+   file varchar,
+   created timestamp,
+   constraint pk_level0_files_imported_data primary key (file)
+);
+
+create table level0_files_in_process(
+   file varchar,
+   created timestamp,
+   constraint pk_level0_files_in_process_data primary key (file)
+);
+
+
 
 
 create table ac_level0(
