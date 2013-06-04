@@ -11,7 +11,8 @@ from StringIO import StringIO
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin')
+        #DB.__init__(self,dbname='odin_test')
+	DB.__init__(self,dbname='odin',user='odinop',host='localhost',passwd='***REMOVED***')
 
 class Level1a:
     """A class to process level 0 files into level 1a."""
@@ -144,12 +145,16 @@ def get_seq(mode):
     return seq,chips,band_start
 
 
-def ac_level1a_importer():
+def ac_level1a_importer(stwa,stwb,backend):
     con=db()
-    query=con.query('''select stw,backend,acd_mon,cc,mode from
+    temp=[stwa,stwb,backend]
+    query=con.query('''select ac_level0.stw,ac_level0.backend,
+                 acd_mon,cc,mode from
                  ac_level0 
-                 natural left join ac_level1a
-                 where ac_level1a.stw is Null order by stw''')
+                 left join ac_level1a using (stw)
+                 where ac_level1a.stw is Null 
+                 and ac_level0.stw>={0} and ac_level0.stw<={1}
+                 and ac_level0.backend='{2}' '''.format(*temp))
     
     result=query.dictresult()
     ac=Level1a()
@@ -179,14 +184,13 @@ def ac_level1a_importer():
               str(rowb['backend'])    +':'+"\\"+
               data                   +'\n')
        	lines.append(line)
-	if ind==10000 or ind==20000 or ind==30000:
-		print ind
-    print 'insert'	
+		
 
         #con.insert('ac_level1a',temp)
  
 	
     conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+    #conn = psycopg2.connect("dbname=odin_test")
     cur = conn.cursor()
     fgr=StringIO()
     fgr.writelines(lines)

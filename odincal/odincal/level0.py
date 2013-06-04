@@ -1,5 +1,5 @@
-from oops.level0 import ACfile,FBAfile,SHKfile,HKdata
-from oops import attitude
+from odin.level0 import ACfile,FBAfile,SHKfile,HKdata
+from odin import attitude
 
 import ctypes
 import numpy
