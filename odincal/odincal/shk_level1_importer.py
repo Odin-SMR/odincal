@@ -1,6 +1,6 @@
 from odin import odin
 import numpy
-from pg import DB
+from pg import DB,ProgrammingError
 
 class db(DB):
     def __init__(self):
@@ -100,6 +100,9 @@ def shk_level1_importer(stwa,stwb,backend):
                 else:
                     shkdict[shk.lower()]=float(data0)
             if insert==1:
-                con.insert('shk_level1',shkdict)
+                try:
+                    con.insert('shk_level1',shkdict)
+                except ProgrammingError:
+                    pass
             #query=con.query('''select LO from shk_level1''') 
             #res=query.getresult()

@@ -58,7 +58,7 @@ if __name__=='__main__':
     while 1:
         try:
             sleep(3600)
-            logger.debug(mark)
+            logger.debug('mark')
         except KeyboardInterrupt:
             logger.warn('C-c pressed exiting')
             break

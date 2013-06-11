@@ -6,6 +6,7 @@ import numpy
 from pg import DB,ProgrammingError,escape_bytea
 from sys import argv
 from os.path import splitext,basename,split
+from datetime import datetime
 #import matplotlib.pyplot as plt
 import psycopg2
 from StringIO import StringIO
@@ -39,7 +40,9 @@ def ac2db():
                         if stw_overflow:
                             datadict['stw']+=2**32
                         if (datadict['inttime']!=9999 and 
-                            discipline=='AERO'):
+                            discipline=='AERO' and 
+			    datadict['sig_type']!='problem' and
+			    datadict['frontend']!=None):
                             dbdict = db_prep(datadict,con)
                             line=(
                                 str(dbdict['stw'])        +':'+
@@ -427,9 +430,10 @@ def getATT(file):
         
         datalist=[]
 	for key in keys:
-            (year,mon,day,hour,minute,
-	     secs,stw,orbit,qt,qa,qe,gps,acs) = ap.table[key]
-            datadict={
+	    try:
+            	(year,mon,day,hour,minute,
+	     	secs,stw,orbit,qt,qa,qe,gps,acs) = ap.table[key]
+            	datadict={
                 'year'     :year,
                 'mon'      :mon,			
                 'day'      :day,
@@ -445,7 +449,9 @@ def getATT(file):
                 'acs'      :acs,
                 'soda'     :int(ap.soda),
                 }
-            datalist.append(datadict)
+            	datalist.append(datadict)
+	    except:
+		pass
         return datalist
 
 
@@ -503,8 +509,10 @@ def import_file(datafile):
                 discipline = getACdis(f2)
                 if stw_overflow:
                     datadict['stw']+=2**32
-                if (datadict['inttime']!=9999 and discipline=='AERO'):
-                    #create an import file to dump in data into db
+                if (datadict['inttime']!=9999 and discipline=='AERO'
+		   and datadict['frontend']!=None and 
+		   datadict['sig_type']!='problem'):
+                    #create an import file to dump in data into
                     fgr.write(
                         str(datadict['stw'])        +'\t'+
                         str(datadict['backend'])    +'\t'+
@@ -517,7 +525,8 @@ def import_file(datafile):
                         str(datadict['mode'])       +'\t'+
                         '\\\\x' + datadict['acd_mon'].tostring().encode('hex') +'\t'+
                         '\\\\x' + datadict['cc'].tostring().encode('hex') +'\t'+
-                        str(split(datafile)[1])     +'\n')
+                        str(split(datafile)[1])     +'\t'+
+			str(datetime.now())         +'\n')
             except EOFError:
                 break
             except ProgrammingError:
@@ -544,7 +553,8 @@ def import_file(datafile):
                 fgr.write(
                         str(datadict['stw'])            +'\t'+
                         str(datadict['mech_type'])      +'\t'+
-                        str(split(datafile)[1])         +'\n')
+                        str(split(datafile)[1])         +'\t'+
+			str(datetime.now())             +'\n')
             except EOFError:
                 break
             except ProgrammingError:
@@ -578,8 +588,8 @@ def import_file(datafile):
                       str(datadict['qe'])     +'\t'+ 
                       str(datadict['gps'])    +'\t'+
                       str(datadict['acs'])    +'\t'+
-                      str(split(datafile)[1]) +'\n')
-                        lines.append(line) 
+                      str(split(datafile)[1]) +'\t'+
+		      str(datetime.now())     +'\n')
 
         conn = psycopg2.connect(config.get('database','pgstring'))
         cur = conn.cursor()
@@ -602,7 +612,8 @@ def import_file(datafile):
                 fgr.write( str(stw)                              +'\t'+
                            str(data)                             +'\t'+
                            str(float(datadict[data][1][index]))  +'\t'+
-                           str(split(datafile)[1])               +'\n')
+                           str(split(datafile)[1])               +'\t'+
+			   str(datetime.now())                   +'\n')
                      
         conn = psycopg2.connect(config.get('database','pgstring'))
         cur = conn.cursor()
