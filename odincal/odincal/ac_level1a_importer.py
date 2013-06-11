@@ -7,11 +7,14 @@ from pkg_resources import resource_filename
 import matplotlib.pyplot as pyplt
 import psycopg2
 from StringIO import StringIO
+from odincal.config import config
+from datetime import datetime
 
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin')
+        #DB.__init__(self,dbname='odin_test')
+	DB.__init__(self,dbname='odin',user='odinop',host='malachite',passwd='***REMOVED***')
 
 class Level1a:
     """A class to process level 0 files into level 1a."""
@@ -54,7 +57,8 @@ class Level1a:
         if data[0]==0:
             return 0,0
         #perform an fft of data
-        librarypath=resource_filename('oops','libfft.so')
+	librarypath=resource_filename('odincal','dummy').replace(
+	'odincal/odincal/dummy','parts/oops/lib/libfft.so')
         libc=ctypes.CDLL(librarypath,mode=3)
         n0=ctypes.c_int(112*self.maxchips)
         c_float_p = ctypes.POINTER(ctypes.c_double)
@@ -144,17 +148,21 @@ def get_seq(mode):
     return seq,chips,band_start
 
 
-def ac_level1a_importer():
+def ac_level1a_importer(stwa,stwb,backend):
     con=db()
-    query=con.query('''select stw,backend,acd_mon,cc,mode from
+    temp=[stwa,stwb,backend]
+    query=con.query('''select ac_level0.stw,ac_level0.backend,
+                 acd_mon,cc,mode from
                  ac_level0 
-                 natural left join ac_level1a
-                 where ac_level1a.stw is Null order by stw''')
+                 left join ac_level1a using (stw)
+                 where ac_level1a.stw is Null 
+                 and ac_level0.stw>={0} and ac_level0.stw<={1}
+                 and ac_level0.backend='{2}' '''.format(*temp))
     
     result=query.dictresult()
     ac=Level1a()
-    lines=[]
     print len(result)
+    fgr = StringIO()
     for ind,rowb in enumerate(result):
         acd_mon=numpy.ndarray(shape=(8,2),dtype='float64',
                               buffer=con.unescape_bytea(rowb['acd_mon']))
@@ -174,29 +182,23 @@ def ac_level1a_importer():
         for ind,band in enumerate(band_start):
             a[band*112:(band+len(chips[ind]))*112]=ac.got[ind]
         data=con.escape_bytea(abs(a).tostring())
-	line=(
-              str(rowb['stw'])        +':'+
-              str(rowb['backend'])    +':'+"\\"+
-              data                   +'\n')
-       	lines.append(line)
-	if ind==10000 or ind==20000 or ind==30000:
-		print ind
-    print 'insert'	
-
-        #con.insert('ac_level1a',temp)
- 
+	fgr.write(
+              str(rowb['stw'])                          +'\t'+
+              str(rowb['backend'])                      +'\t'+
+              '\\\\x' + abs(a).tostring().encode('hex') +'\t'+               
+              str(datetime.now())                       +'\n')
 	
-    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=***REMOVED***")
+    conn = psycopg2.connect("dbname=odin user=odinop host=malachite password=***REMOVED***")
     cur = conn.cursor()
-    fgr=StringIO()
-    fgr.writelines(lines)
     fgr.seek(0)
-    cur.execute("create temp table foo(stw bigint, backend backend, spectra bytea );")
-    cur.copy_from(file=fgr,table='foo', sep=':')
+    cur.execute("create temporary table foo ( like ac_level1a );")
+    cur.copy_from(file=fgr,table='foo')
     fgr.close()
-    cur.execute("insert into ac_level1a select * from foo as f where not exists (select * from ac_level1a where f.stw=ac_level1a.stw);")
+    cur.execute("delete from ac_level1a ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
+    cur.execute("insert into ac_level1a (select * from foo)")
     conn.commit()
     conn.close()
+
 
     con.close()
 

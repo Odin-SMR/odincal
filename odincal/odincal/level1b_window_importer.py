@@ -1,8 +1,8 @@
 import numpy
 import copy
-from oops import odin
+from odin import odin
 import pg
-from pg import DB
+from pg import DB,ProgrammingError
 from sys import stderr,stdout,stdin,argv,exit
 import matplotlib.pyplot as pyplt
 from odincal.reference_fit import Ref_fit
@@ -816,6 +816,16 @@ def level1b_importer():
     query=con.query('''select min(stw),max(stw)
                        from ac_level0 where file='{0}' '''.format(*keys))
     result1=query.dictresult()
+    if result1[0]['max']==None:
+	#no data from file imported in ac_level0 table
+        tempfile=[acfile]
+	con.query('''delete from in_process 
+                     where file='{0}' '''.format(*tempfile))
+        processtemp={'file':acfile,'info':'no ac data',
+                     'total_scans':0,'success_scans':0}
+        con.insert('processed',processtemp)
+        exit(0)	
+
     sodakeys=[result1[0]['min'],result1[0]['max']]
     sodaquery=con.query('''select soda 
                        from attitude_level0 where stw>{0} and stw<{1} 
@@ -943,11 +953,11 @@ def level1b_importer():
     for index,row in enumerate(result2):
 
         print 'processing scan '+str(row['start'])+' nr '+str(index)+' of '+str(len(result2))
-        try:          
+        if 1:          
 	    result3=copy.deepcopy(result)
             level1b_window_importer(result3,row['start'],tdiff,con,soda)
             success_scans=success_scans+1
-        except:
+        else:
             pass
 
     tempfile=[acfile]
@@ -1126,12 +1136,10 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
                 else:
                     specs.append(s)
 
-		insertcal=0
                 for spec in specs: 
 		   	 
                     #spec.data=spec.data[0:112]
                     if s.type=='SPE' and s.start==calstw:
-			insertcal=1
                         temp={
                     'stw'             :s.stw,
                     'backend'         :s.backend,
@@ -1153,9 +1161,12 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
                     'calstw'          :calstw
                     }
                         
-                        con.insert('ac_level1b',temp)
+                        try:
+                            con.insert('ac_level1b',temp)
+                        except ProgrammingError:
+                            continue
 		for spec in specs:
-                    if s.type=='CAL' or s.type=='SSB' and insertcal==1:
+                    if s.type=='CAL' or s.type=='SSB':
 			print s.lofreq
                         temp={
                     'stw'             :s.stw,
@@ -1176,7 +1187,10 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
                     'sbpath'          :s.sbpath,
                     'tspill'          :Tspill,
                     }
-                        con.insert('ac_cal_level1b',temp)
+                        try:
+                            con.insert('ac_cal_level1b',temp)
+                        except  ProgrammingError:
+                            continue
             
     
                         

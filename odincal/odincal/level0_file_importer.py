@@ -33,7 +33,7 @@ def import_file(file):
                str(timestamp)       +'\t'+
                str(datetime.now())  +'\n')
 
-    conn = psycopg2.connect('dbname=odin_test')
+    conn = psycopg2.connect(config.get('database','pgstring'))    
     cur = conn.cursor()
     fgr.seek(0)
     cur.execute("create temporary table foo ( like level0_files );")
@@ -60,7 +60,7 @@ if __name__=='__main__':
                    str(timestamp)       +'\t'+
                    str(datetime.now())  +'\n')
 
-    conn = psycopg2.connect('dbname=odin_test')
+    conn = psycopg2.connect(config.get('database','pgstring'))
     cur = conn.cursor()
     fgr.seek(0)
     cur.execute("create temporary table foo ( like level0_files );")

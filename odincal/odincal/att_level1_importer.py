@@ -1,12 +1,17 @@
-from oops import odin
+from odin import odin
 import numpy
 from pg import DB
 from sys import stderr,stdout,stdin,argv,exit
+import psycopg2
+from StringIO import StringIO
+from odincal.config import config
+from datetime import datetime
+
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin')
-
+        #DB.__init__(self,dbname='odin_test')
+	DB.__init__(self,dbname='odin',user='odinop',host='malachite',passwd='***REMOVED***')
 
 def djl(year, mon, day, hour, min, secs):
         dn = 367L*year - 7*(year+(mon+9)/12)/4 \
@@ -15,14 +20,19 @@ def djl(year, mon, day, hour, min, secs):
         jd = float(dn)-0.5+(hour+(min+secs/60.0)/60.0)/24.0
         return jd
 
-def att_level1_importer():
-    soda=argv[1]
+def att_level1_importer(stwa,stwb,soda,backend):
+    #soda=argv[1]
+    temp=[stwa,stwb,soda,backend]
     con =db()
-    query=con.query('''select stw,backend,inttime from ac_level0
-                       natural left join attitude_level1 
-                       where (soda is NULL or soda!={0})
-                       order by stw'''.format(soda))
+    query=con.query('''select ac_level0.stw,ac_level0.backend,
+                       inttime from ac_level0
+                       left join attitude_level1 using (stw) 
+                       where (soda is NULL or soda!={2})
+                       and ac_level0.stw>={0} and ac_level0.stw<={1}
+                       and ac_level0.backend='{3}' '''.format(*temp))
     sigresult=query.dictresult()
+    fgr = StringIO()
+    print len(sigresult)
     for sig in sigresult:
         keys=[sig['stw'],soda]
 	query=con.query('''select year,mon,day,hour,min,secs,stw,
@@ -79,32 +89,41 @@ def att_level1_importer():
             s=odin.Spectrum()
             s.stw=long(stw)
             s.Attitude(t)
-            datadict={
-                'stw'       :sig['stw'],
-                'backend'   :sig['backend'],
-                'soda'      :soda,
-                'mjd'       :s.mjd,
-                'lst'       :s.lst,
-                'orbit'     :s.orbit,
-                'longitude' :s.longitude,
-                'latitude'  :s.latitude,
-                'altitude'  :s.altitude,
-                'skybeamhit':s.skybeamhit,
-                'ra2000'    :s.ra2000,
-                'dec2000'   :s.dec2000,
-                'vsource'   :s.vsource,
-                'qtarget'   :"{{{},{},{},{}}}".format(*s.qtarget),
-                'qachieved' :"{{{},{},{},{}}}".format(*s.qachieved),
-                'qerror'    :"{{{},{},{}}}".format(*s.qerror),
-                'gpspos'    :"{{{},{},{}}}".format(*s.gpspos),
-                'gpsvel'    :"{{{},{},{}}}".format(*s.gpsvel),
-                'sunpos'    :"{{{},{},{}}}".format(*s.sunpos),
-                'moonpos'   :"{{{},{},{}}}".format(*s.moonpos),
-                'sunzd'     :s.sunzd,
-                'vgeo'      :s.vgeo,
-                'vlsr'      :s.vlsr,
-                'alevel'    :s.level,
-                }
-            con.insert('attitude_level1',datadict)
+	    fgr.write(  str(sig['stw'])                             +'\t'+
+                        str(sig['backend'])                         +'\t'+     
+                        str(soda)                                   +'\t'+
+                        str(s.mjd)                                  +'\t'+
+                        str(s.lst)                                  +'\t'+
+                        str(s.orbit)                                +'\t'+
+                        str(s.latitude)                             +'\t'+
+                        str(s.longitude)                            +'\t'+
+                        str(s.altitude)                             +'\t'+
+                        str(s.skybeamhit)                           +'\t'+
+                        str(s.ra2000)                               +'\t'+
+                        str(s.dec2000)                              +'\t'+
+                        str(s.vsource)                              +'\t'+
+                        str("{{{},{},{},{}}}".format(*s.qtarget))   +'\t'+
+                        str("{{{},{},{},{}}}".format(*s.qachieved)) +'\t'+
+                        str("{{{},{},{}}}".format(*s.qerror))       +'\t'+
+                        str("{{{},{},{}}}".format(*s.gpspos))       +'\t'+
+                        str("{{{},{},{}}}".format(*s.gpsvel))       +'\t'+
+                        str("{{{},{},{}}}".format(*s.sunpos))       +'\t'+
+                        str("{{{},{},{}}}".format(*s.moonpos))      +'\t'+
+                        str(s.sunzd)                                +'\t'+
+                        str(s.vgeo)                                 +'\t'+
+                        str(s.vlsr)                                 +'\t'+
+                        str(s.level)                                +'\t'+
+                        str(datetime.now())                         +'\n')
+    conn = psycopg2.connect("dbname=odin user=odinop host=malachite password=***REMOVED***")
+    cur = conn.cursor()
+    fgr.seek(0)
+    cur.execute("create temporary table foo ( like attitude_level1 );")
+    cur.copy_from(file=fgr,table='foo')
+    fgr.close()
+    cur.execute("delete from attitude_level1 ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
+    cur.execute("insert into attitude_level1 (select * from foo)")
+    conn.commit()
+    conn.close()      
     con.close()
             
+
