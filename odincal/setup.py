@@ -30,6 +30,7 @@ setup(
             "level1b_importer = odincal.level1b_importer:level1b_importer",
             "level1b_window_importer = odincal.level1b_window_importer:level1b_importer",
             "level1b_exporter = odincal.level1b_exporter:level1b_exporter",
+            "odinlogserver = odincal.logserver:main",
     ],},
 
     author='Joakim Möller',
