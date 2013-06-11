@@ -1,10 +1,11 @@
-from oops import odin
+from odin import odin
 import numpy
-from pg import DB
+from pg import DB,ProgrammingError
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin')
+        #DB.__init__(self,dbname='odin_test')
+	DB.__init__(self,dbname='odin',user='odinop',host='malachite',passwd='0d!n-cth')
 
 def Lookup(table,stw0):
     i = 0
@@ -12,13 +13,16 @@ def Lookup(table,stw0):
         i = i+1
     return table[1][i]
 
-def shk_level1_importer():
+def shk_level1_importer(stwa,stwb,backend):
     con =db()
+    temp=[stwa,stwb,backend]
     query=con.query('''select stw,backend,frontend from ac_level0
-                       natural left join shk_level1 
+                       left join shk_level1 using (stw,backend) 
                        where imageloadb is NULL 
-                       order by stw''')
+                       and ac_level0.stw>={0} and ac_level0.stw<={1}
+                       and backend='{2}' '''.format(*temp))
     sigresult=query.dictresult()
+    print len(sigresult)
     for sig in sigresult: 
         #For the split modes and the currently accepted
         #frontend configurations, AC1 will hold REC_495 data in its lower half
@@ -96,6 +100,9 @@ def shk_level1_importer():
                 else:
                     shkdict[shk.lower()]=float(data0)
             if insert==1:
-                con.insert('shk_level1',shkdict)
+                try:
+                    con.insert('shk_level1',shkdict)
+                except ProgrammingError:
+                    pass
             #query=con.query('''select LO from shk_level1''') 
             #res=query.getresult()

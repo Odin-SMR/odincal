@@ -1,45 +1,73 @@
 from subprocess import call
 from pg import DB
 from datetime import date,datetime,timedelta 
+from tempfile import NamedTemporaryFile
 from odincal.config import config
 from os.path import join,split
-from odincal.level0 import import_file
+from pkg_resources import resource_filename
+from odincal.launcher import ShellLauncher
+import torquepy
 
 configuration=config.get('odincal','config')
 period_starts=eval(config.get(configuration,'period_start'))
 period_ends=eval(config.get(configuration,'period_end'))
-PROCESS_NUM=2
-PROCESS_CHUNKSIZE=10
+PROCESS_NUM_LEVEL0=100
+PROCESS_CHUNKSIZE_LEVEL0=100
+PROCESS_NUM_LEVEL1B=100
+PROCESS_CHUNKSIZE_LEVEL1B=2
+
+binfile=resource_filename('odincal','dummy').replace(
+        'odincal/odincal/dummy','bin/level1b_window_importer')
+interpreter=resource_filename('odincal','dummy').replace(
+        'odincal/odincal/dummy','bin/odinpy')
+launcher='shell'
+Error_Path=resource_filename('odincal','dummy').replace('dummy','')
+Output_Path=resource_filename('odincal','dummy').replace('dummy','')
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin_test')
-   
+        DB.__init__(self,dbname=config.get('database','dbname'),
+                         user=config.get('database','user'),
+                         host=config.get('database','host'),
+                         passwd=config.get('database','passwd'),
+                         )
+
+
+
 def get_full_path(filename):
     dirname='/misc/pearl/odin/level0/'
     if filename.endswith('ac1'):
         filetype='ac1'
     elif filename.endswith('ac2'):
-        filetype='ac1'
+        filetype='ac2'
     elif filename.endswith('shk'):
         filetype='shk'
     elif filename.endswith('fba'):
         filetype='fba'
     elif filename.endswith('att'):
-        filetype='att'
+	if (eval('0x'+filename.replace('.att',''))<
+    eval('0x'+'0ce981ef.att'.replace('.att',''))):
+                filetype='att_17'
+        else:   
+                filetype='att'
     else:
         pass
     partdir=filename[0:3]
     full_filename=join(dirname,filetype,partdir,filename)
 
-    dirname='/home/bengt/data/odin/'
-    full_filename=join(dirname,filetype,filename)
+    #dirname='/home/bengt/data/odin/'
+    #full_filename=join(dirname,filetype,filename)
     return full_filename
 
 
 
 if __name__=='__main__':
     con=db()
+    
+    if launcher=='not shell':
+        tc = ShellLauncher()
+    else:
+        tc = torquepy.TorqueConnection('morion')
 
     #make a list of which periods we consider
     periods=[]
@@ -70,10 +98,10 @@ if __name__=='__main__':
     for period in periods:
         #for level0_period we consider to import level0 data
         level0_period=[str(period['start-1']),str(period['end+1']),
-                       PROCESS_NUM*PROCESS_CHUNKSIZE]
+                       PROCESS_NUM_LEVEL0*PROCESS_CHUNKSIZE_LEVEL0]
         #for ac_period we consider to calibrate data 
         ac_period=[str(period['start']),str(period['end']),
-                   PROCESS_NUM*PROCESS_CHUNKSIZE]
+                   PROCESS_NUM_LEVEL1B*PROCESS_CHUNKSIZE_LEVEL1B]
     
         #check if we have any level0_files at all for this period
         query=con.query('''
@@ -102,8 +130,25 @@ if __name__=='__main__':
 
         if len(result)>0:
             #do level0 import
-            job_list = map(None, *([iter(result)] * PROCESS_CHUNKSIZE))
+            job_list = map(None, *([iter(result)] * PROCESS_CHUNKSIZE_LEVEL0))
             for grp in job_list:
+                jobfile=NamedTemporaryFile(delete=False,mode='w+r+x')
+                jobfile.write('''#!{0}\n'''.format(interpreter))
+                jobfile.write('''from pg import DB\n''')
+                jobfile.write('''from datetime import datetime \n''')
+                jobfile.write('''from os.path import basename \n''')
+		jobfile.write('''from odincal.config import config\n''')
+                jobfile.write('''from odincal.level0 import import_file\n''')
+		jobfile.write('''dbname=config.get('database','dbname')\n''')
+		jobfile.write('''user=config.get('database','user')\n''')
+		jobfile.write('''host=config.get('database','host')\n''')
+		jobfile.write('''passwd=config.get('database','passwd')\n''')
+                jobfile.write('''class db(DB):\n''')
+                jobfile.write('''   def __init__(self):\n''')
+                jobfile.write('''      DB.__init__(self,dbname=dbname,user=user,host=host,passwd=passwd)\n''')
+                jobfile.write('''con=db()\n''')
+                jobfile.write('''filelist=[''')
+              
                 for row in grp:
                     if not row is None:
                         fullname=get_full_path(row['file'])
@@ -111,16 +156,32 @@ if __name__=='__main__':
                               'created': datetime.today()}
                         print row['file'],row['measurement_date']
                         con.insert('level0_files_in_process',temp) 
-                        
-                        #this is what the jobscript should do
-                        import_file(fullname)
-                        con.query('''delete from level0_files_in_process 
-                         where file='{0}' '''.format(row['file']))
-                        con.insert('level0_files_imported',temp)
-                        
-                        
-                #create jobscript,import_file(filename)
-                #launch jobscript,
+                        jobfile.write('\'{0}\''.format(fullname)+',')
+                jobfile.write(''']\n''')
+                jobfile.write('''for file in filelist:\n''')
+                jobfile.write('''   print file\n''')
+                jobfile.write('''   import_file(file)\n''')
+                sqlstring='''\'''delete from level0_files_in_process where file=\'{0}\' \'''.format(basename(file))'''
+                jobfile.write('''   con.query({0})\n'''.format(sqlstring))
+                jobfile.write('''   temp={\'file\':basename(file),\'created\': datetime.today()}\n''')
+                jobfile.write('''   con.insert(\'level0_files_imported\',temp)\n''')
+                jobfile.write('''con.close()''')
+                
+                jobfile.flush()
+                jobid = tc.submit(jobfile.name,'batch',
+                           Job_Name='level0_import',
+                           Variable_List='PGHOST=malachite',
+			   Resource_List=[
+                               ('nodes','1:odincal'),
+                               #('walltime','2600'),
+			   ],
+                           Error_Path=Error_Path,
+                           Output_Path=Output_Path,
+                           )
+                jobfile.close()
+                print jobid
+            con.close()
+	    exit(0)		
         else:
             #check that all level0 files are imported
             #we can possibly have level0 files in process
@@ -141,7 +202,7 @@ if __name__=='__main__':
                 continue
             
             #check if this is the near real time period
-            if 1 :#period['info']=='today':
+            if period['info']=='today':
                 #require some extra check
                 #check which is the last date from where we have all
                 #different files imported
@@ -168,8 +229,8 @@ if __name__=='__main__':
                        fba_data=1
                 if att_data==1 and shk_data==1 and fba_data==1:
                     #the latest date we have attitude,shk,and fba data
-                    #is t1, now subtract one day for safety reason
-                    t1=t1-timedelta(days=1)
+                    #is t1, now subtract 2 days for safety reason
+                    t0=t0-timedelta(days=2)
                     ac_period[1]=str(t1.date())
                 else:
                     #continue to next period
@@ -192,8 +253,15 @@ if __name__=='__main__':
             
             if len(result)>0:
                #do level1b_calibration import
-                job_list = map(None, *([iter(result)] * PROCESS_CHUNKSIZE))
+                job_list = map(None, 
+                               *([iter(result)] * PROCESS_CHUNKSIZE_LEVEL1B))
                 for grp in job_list:
+                    jobfile=NamedTemporaryFile(delete=False,mode='w+r+x')
+                    jobfile.write('''#!{0}\n'''.format(interpreter))
+                    jobfile.write('''from subprocess import call\n''')
+                    jobfile.write('''binfile=\'{0}\'\n'''.format(binfile))
+                    
+                    jobfile.write('''filelist=[''')
                     for row in grp:
                         if not row is None:
                               temp={
@@ -201,21 +269,27 @@ if __name__=='__main__':
                                   'created': datetime.today()
                                   }
                               con.insert('in_process',temp)
-            
-                for grp in job_list:
-                    for row in grp:
-                        if not row is None:
-                              binfile='/home/bengt/work/odincal_2013/odincal_outputfiles/odincal/bin/level1b_window_importer'
-                              ac=row['file'][-3::]
-                              call([binfile,file,ac.upper(),'1'])
-                              
-                              #con.insert('processed',temp)
-                              #con.query('''delete from in_process 
-                              #where file='{0}' '''.format(row['file']))
-                         #create jobscript
-                         #launch jobscript,
-            
-
+                              jobfile.write('\'{0}\''.format(row['file'])+',')
+                              print row['file']
+                    jobfile.write(''']\n''')
+                    jobfile.write('''for file in filelist:\n''')
+                    jobfile.write('''  call([binfile,file,file[-3::].upper(),'1'])''')
+                    jobfile.flush()
+                    jobid = tc.submit(jobfile.name,'batch',
+                                      Job_Name='calibration_import',
+                                      Variable_List='PGHOST=malachite',
+			              Resource_List=[
+                                          ('nodes','1:odincal'),
+                                          #('walltime','2600'),
+			              ],
+                                      Error_Path=Error_Path,
+                                      Output_Path=Output_Path,
+                                      )
+                    jobfile.close()
+                    print jobid
+                    #submit jobfile to queu
+		con.close()
+		exit(0)
     con.close()
 
 
