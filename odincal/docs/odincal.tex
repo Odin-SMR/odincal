@@ -1672,12 +1672,78 @@ level1b-product.
 A description of the various parts of the package...
 
 \section{Required packages and installation}
+This section describes what installation and configuration tasks that have to be completed to install the system from scratch.
 \subsection{System preparations}
+The installation is done on a Ubuntu 12.04.1 LTS server system. The software suite is designed for python 2.7.
+
+The following packages needs to be installed.
+\begin{verbatim}  
+  $> sudo apt-get install libpng12-dev python-matplotlib libhdf4-dev
+  $> sudo apt-get install python-setuptools python-dev flex bison
+  $> sudo apt-get install python-zc.buildout python-numpy libhdf5-serial-dev
+  $> sudo apt-get install build-essential postgresql-server-dev-9.1
+\end{verbatim}
+
+
 \subsection{Installation of odincal}
+
+To install the odincal software suite. 
+
+\begin{verbatim}
+tar xf odincal-1.0.0.tar.gz
+cd odincal-1.0.0
+python virtualenv.py .
+bin/buildout
+\end{verbatim}
+
+
 \subsection{Postgresql preparation}
+Create a database a database called odin owned by your user. (Tip! use your system us
+ername for easier access.)
+ 
+\begin{verbatim}  
+> sudo -u postgres psql
+psql> create user <your_user_name> login;
+psql> create database odin owner <your_user_name>;
+psql> \q
+\end{verbatim}
+
+In a new environment the datamodel must be installed, i.e. create tables and stored functions. To install the datamodel:
+
+\begin{verbatim}  
+  $> bin/create_datamodel
+\end{verbatim}
+
+
 \subsection{Automatic downloading from PDC}
+Data is downloaded from PDC at KTH to the filesystem locally. This is done with the rsync command using a GSSAPI ticket. A valid kerberos ticket is needed to do this action.
 
+A crontab entry defines the action.
+\begin{verbatim}
+13 03 * * * rsync -T /tmp -aLKe "ssh -o 'GSSAPIKeyExchange yes'" \
+    --log-file=/home/odinop/odincal/rsync.log \
+    --exclude-from=/home/odinop/.pdc_excludes \
+    donal@pisces.pdc.kth.se:/data/odin/level0/ /misc/pearl/odin/level0/
+\end{verbatim}
 
+The --exclude-from refers to a file containing rules for wich directories should be used to syncronisation.
+
+\begin{verbatim}
++ ac1**
++ *.ac1
++ ac2**
++ *.ac2
++ shk**
++ *.shk
++ fba**
++ *.fba
++ att/
++ att/*
++ att_17/
++ att_17/*
++ *.att
+- *
+\end{verbatim}
 
 
 \end{document}
