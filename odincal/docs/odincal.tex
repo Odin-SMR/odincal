@@ -1142,7 +1142,8 @@ orbit files in various formats as descrbied below:
 \begin{enumerate} 
 \item in hdf4 format (as earlier calibration versions level1b-files) as: 
 \begin{verbatim}
-odinop@malachite:bin/odinpy level1b_exporter_hdf4.py  orbit (AC1|AC2) (0|1) 
+odinop@malachite:../../bin/odinpy level1b_exporter_32.py  
+orbit (AC1|AC2) (0|1) 
 \end{verbatim}
 If the third argument is 1 a second calibration step
 (see Sect~\ref{sec:part2}) will be applied on the data.
@@ -1150,17 +1151,18 @@ However, this way of producing files only works if the odincal
 package is compiled on a 32-bit machine. Currently this version is
 not installed on any of the Chalmers machine.
 \item in hdf5 format as (for example): 
+
 \begin{verbatim}
-odinop@malachite:bin/odinpy level1b_exporter_hdf5.py 65971 AC1 1
+odinop@malachite:~/odincal_tmp/odincal/odincal/odincal$
+../../bin/odinpy level1b_exporter_hdf5.py 46885 AC1 1
 \end{verbatim}
-The structure of files produced has the same format as earlier
-level1b-files, although old reading routines will most likely fail.
+The structure of the file produced has the same format as earlier
+level1b-files, although old reading routines will fail.
 
 \item into a matlab structure as:
 \begin{verbatim}
->>spec= level1b_exporter_matlab(65971,AC1,1)
+>>[spec,ok]= level1b_exporter_matlab(46885,AC1,1)
 \end{verbatim}
-
 \end{enumerate}
 
 The following code is an example how one quickly can get information
@@ -1299,7 +1301,7 @@ at high tangent altitudes for each mode, and import data to the
 ac\underline{ }level1b\underline{ }average table.
 This can be performed by the command:
 \begin{verbatim}
-$>bin/odinpy ac_average_data_import.py
+$>../../bin/odinpy ac_average_data_import.py
 \end{verbatim}
 
 The second task is to estimate fits to the average data
@@ -1307,7 +1309,7 @@ in table ac\underline{ }level1b\underline{ }average
 and import data to the ac\underline{ }cal\underline{ }level1c table.
 This can be performed by the command:
 \begin{verbatim}
-$>bin/odinpy ac_average_datafit_import.py
+$>../../bin/odinpy ac_average_datafit_import.py
 \end{verbatim}
 
 
