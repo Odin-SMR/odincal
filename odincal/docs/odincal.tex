@@ -1106,7 +1106,7 @@ gives the result min=5208477946 and max=5208570366.\newline
 Query 2:
 \begin{verbatim}
 select min(stw),max(stw) 
-from getscansac1(5208477946,5208570366) 
+from getscansac1(5208477946,5208570366+16*60*45) 
 where start>=5208477946 and start<=5208570366;
 \end{verbatim}
 gives the result min=5208477979 and max=5208570366.\newline
@@ -1137,20 +1137,41 @@ gives a result of 1426 rows.
 \label{sec:officialexport}
 The odincal package contains a number of programs/functions 
 that can be used to export the official level1b-product.
-The official level1b-product can be exported into:\newline
-orbit files in hdf4 format as: 
+The official level1b-product can be exported into
+orbit files in various formats as descrbied below:
+\begin{enumerate} 
+\item in hdf4 format (as earlier calibration versions level1b-files) as: 
 \begin{verbatim}
-odinop@malachite:bin/level1b_exporter_hdf4 65971 AC1 
+odinop@malachite:bin/odinpy level1b_exporter_hdf4.py  orbit (AC1|AC2) (0|1) 
 \end{verbatim}
-orbit files in hdf5 format as: 
+If the third argument is 1 a second calibration step
+(see Sect~\ref{sec:part2}) will be applied on the data.
+However, this way of producing files only works if the odincal
+package is compiled on a 32-bit machine. Currently this version is
+not installed on any of the Chalmers machine.
+\item in hdf5 format as (for example): 
 \begin{verbatim}
-odinop@malachite:bin/level1b_exporter_hdf5 65971 AC1 
+odinop@malachite:bin/odinpy level1b_exporter_hdf5.py 65971 AC1 1
 \end{verbatim}
-into a matlab structure as:
+The structure of files produced has the same format as earlier
+level1b-files, although old reading routines will most likely fail.
+
+\item into a matlab structure as:
 \begin{verbatim}
->>spec= level1b_exporter_matlab(65971,AC1)
+>>spec= level1b_exporter_matlab(65971,AC1,1)
 \end{verbatim}
 
+\end{enumerate}
+
+The following code is an example how one quickly can get information
+on example of orbits that are processed for a given observation mode:
+\begin{verbatim}
+odin->select floor(foo.orbit) as orb from  
+(select orbit from ac_level1b join attitude_level1 using(backend,stw)
+where backend='AC1' and frontend='549' and version=8
+and sourcemode='STRAT' and freqmode=2 limit 10000) as foo
+group by orb order by orb;
+\end{verbatim} 
 
 
 %How to export  odin \label{sec:calibration}
@@ -1170,6 +1191,13 @@ and these are:
 (Sect.\ref{sec:level0processing}).
 \end{enumerate}
 
+In point 4 a first calibration step described
+in Sect.\ref{sec:part1} is applied.
+A second calibration step (Sect.\ref{sec:part2}) is applied
+by the official programs (Sect.~\ref{sec:officialexport})
+used for exporting data from the database tables.
+The necessary processing for this task is decribed 
+in Sect~\ref{sec:level1processing}.
 
 
 %The tables
@@ -1257,6 +1285,34 @@ to all scans that start within the ac-file and import data into level1b-tables
 
 \end{itemize}
  
+\subsubsection{Processing of level1-data}
+\label{sec:level1processing}
+
+The processing of level1-data is intended to be used for a second
+calibration step (Sect.~\ref{sec:part2}). The processing is not a part of 
+the automatic processing, and it is intended to be performed first
+after a substantial part of all other processing has been performed.
+Two types of processing jobs are defined for this task.
+
+The first task is to extract average data from measurements
+at high tangent altitudes for each mode, and import data to the
+ac\underline{ }level1b\underline{ }average table.
+This can be performed by the command:
+\begin{verbatim}
+$>bin/odinpy ac_average_data_import.py
+\end{verbatim}
+
+The second task is to estimate fits to the average data
+in table ac\underline{ }level1b\underline{ }average
+and import data to the ac\underline{ }cal\underline{ }level1c table.
+This can be performed by the command:
+\begin{verbatim}
+$>bin/odinpy ac_average_datafit_import.py
+\end{verbatim}
+
+
+
+
 
 %\subsubsection{Export of calibrated data}
 %\label{sec:export}
@@ -1302,6 +1358,10 @@ Thus, in this example, every sixth hour (00:17, 06:17, 12:17, and 18:17)
 the program process\underline{ }level0\underline{ }or\underline{ }calibrate
 runs. This program identifies which data that should be processed
 and sends ``processing jobs'' to the queing system for later execution.
+
+When a substantial part of all data has been processed,
+the processing of average data can be performed, as described in
+Sect.~\ref{sec:level1processing}.
 
 \subsubsection*{Processing problem}
 When sending processing job, e.g. the calibration of the 
@@ -1663,10 +1723,6 @@ level1b-product.
 
 
 
- 
-
-
-
 \section{The odincal package}
 \subsection{Package details}
 A description of the various parts of the package...
@@ -1744,6 +1800,7 @@ The --exclude-from refers to a file containing rules for wich directories should
 + *.att
 - *
 \end{verbatim}
+
 
 
 \end{document}
