@@ -7,14 +7,12 @@ from os.path import join,split
 from pkg_resources import resource_filename
 from odincal.launcher import ShellLauncher
 import torquepy
+import numpy as N
 
 configuration=config.get('odincal','config')
 period_starts=eval(config.get(configuration,'period_start'))
 period_ends=eval(config.get(configuration,'period_end'))
-PROCESS_NUM_LEVEL0=100
-PROCESS_CHUNKSIZE_LEVEL0=100
-PROCESS_NUM_LEVEL1B=100
-PROCESS_CHUNKSIZE_LEVEL1B=2
+version=int(config.get(configuration,'version'))
 
 binfile=resource_filename('odincal','dummy').replace(
         'odincal/odincal/dummy','bin/level1b_window_importer')
@@ -46,7 +44,7 @@ def get_full_path(filename):
         filetype='fba'
     elif filename.endswith('att'):
 	if (eval('0x'+filename.replace('.att',''))<
-    eval('0x'+'0ce981ef.att'.replace('.att',''))):
+    eval('0x'+'0ce8666f.att'.replace('.att',''))):
                 filetype='att_17'
         else:   
                 filetype='att'
@@ -61,7 +59,14 @@ def get_full_path(filename):
 
 
 
-if __name__=='__main__':
+def main():
+    
+    PROCESS_NUM_LEVEL0=400
+    PROCESS_CHUNKSIZE_LEVEL0=40
+    PROCESS_NUM_LEVEL1B=400
+    PROCESS_CHUNKSIZE_LEVEL1B=1
+    PROCESS_QUEUE=400
+
     con=db()
     
     if launcher=='not shell':
@@ -89,19 +94,30 @@ if __name__=='__main__':
             'info'    : info
             }    
         periods.append(period)
-
+	
     #loop over the periods
     #perform level0 import for the period first
     #if all level0 import is done for a period
     #we can start to calibrate
-        
+    inqueue = tc.inqueue('odincal')
+    no_inqueue = len(inqueue)    
+    no_available=N.max([PROCESS_QUEUE-no_inqueue,0])
+    print no_available
+    if no_available==0:
+    	exit(0)
+    if PROCESS_NUM_LEVEL0>no_available:
+    	PROCESS_NUM_LEVEL0=no_available
+    if PROCESS_NUM_LEVEL1B>no_available:
+	PROCESS_NUM_LEVEL1B=no_available
+
     for period in periods:
+	print period
         #for level0_period we consider to import level0 data
         level0_period=[str(period['start-1']),str(period['end+1']),
                        PROCESS_NUM_LEVEL0*PROCESS_CHUNKSIZE_LEVEL0]
         #for ac_period we consider to calibrate data 
         ac_period=[str(period['start']),str(period['end']),
-                   PROCESS_NUM_LEVEL1B*PROCESS_CHUNKSIZE_LEVEL1B]
+                   PROCESS_NUM_LEVEL1B*PROCESS_CHUNKSIZE_LEVEL1B,version]
     
         #check if we have any level0_files at all for this period
         query=con.query('''
@@ -168,12 +184,13 @@ if __name__=='__main__':
                 jobfile.write('''con.close()''')
                 
                 jobfile.flush()
-                jobid = tc.submit(jobfile.name,'batch',
+                jobid = tc.submit(jobfile.name,'odincal',
                            Job_Name='level0_import',
                            Variable_List='PGHOST=malachite',
 			   Resource_List=[
                                ('nodes','1:odincal'),
-                               #('walltime','2600'),
+                               ('walltime','7200'),
+			       ('mem','1400mb'),
 			   ],
                            Error_Path=Error_Path,
                            Output_Path=Output_Path,
@@ -218,6 +235,8 @@ if __name__=='__main__':
                 shk_data=0
                 fba_data=0
                 for row in result:
+		    if row['ext']=='ac1' or row['ext']=='ac2':
+			continue
                     t1=datetime.strptime(row['max'], '%Y-%m-%d')
                     if t1<t0:
                         t0=t1
@@ -231,7 +250,7 @@ if __name__=='__main__':
                     #the latest date we have attitude,shk,and fba data
                     #is t1, now subtract 2 days for safety reason
                     t0=t0-timedelta(days=2)
-                    ac_period[1]=str(t1.date())
+                    ac_period[1]=str(t0.date())
                 else:
                     #continue to next period
                     continue  
@@ -245,8 +264,10 @@ if __name__=='__main__':
            left join in_process using(file)
            where measurement_date>='{0}' and measurement_date<='{1}' 
            and (right(file,3)='ac1' or right(file,3)='ac2')
-           and processed.total_scans is Null and
-           in_process.created is Null
+           and (processed.total_scans is Null or
+		processed.version!={3}) and (
+           in_process.created is Null or
+           in_process.version!={3})
            order by measurement_date desc limit {2}
            '''.format(*ac_period))
             result=query.dictresult()
@@ -260,27 +281,39 @@ if __name__=='__main__':
                     jobfile.write('''#!{0}\n'''.format(interpreter))
                     jobfile.write('''from subprocess import call\n''')
                     jobfile.write('''binfile=\'{0}\'\n'''.format(binfile))
-                    
+                    jobfile.write('''version={0}\n'''.format(version))
                     jobfile.write('''filelist=[''')
-                    for row in grp:
-                        if not row is None:
-                              temp={
-                                  'file'   :row['file'],
-                                  'created': datetime.today()
+		    if PROCESS_CHUNKSIZE_LEVEL1B==1:
+			temp={
+                                  'file'   :grp['file'],
+                                  'created':datetime.today(),
+                                  'version':version 
                                   }
-                              con.insert('in_process',temp)
-                              jobfile.write('\'{0}\''.format(row['file'])+',')
-                              print row['file']
+                  	con.insert('in_process',temp)
+                        jobfile.write('\'{0}\''.format(grp['file'])+',')
+			print grp['file']
+		    else:			
+                    	for row in grp:
+                        	if not row is None:
+                              		temp={
+                                  'file'   :row['file'],
+                                  'created':datetime.today(),
+                                  'version':version 
+                                  	}
+                              		con.insert('in_process',temp)
+                              		jobfile.write('\'{0}\''.format(row['file'])+',')
+                              		print row['file']
                     jobfile.write(''']\n''')
                     jobfile.write('''for file in filelist:\n''')
-                    jobfile.write('''  call([binfile,file,file[-3::].upper(),'1'])''')
+                    jobfile.write('''  call([binfile,file,file[-3::].upper(),'1',str(version)])''')
                     jobfile.flush()
-                    jobid = tc.submit(jobfile.name,'batch',
+                    jobid = tc.submit(jobfile.name,'odincal',
                                       Job_Name='calibration_import',
                                       Variable_List='PGHOST=malachite',
 			              Resource_List=[
                                           ('nodes','1:odincal'),
-                                          #('walltime','2600'),
+                                          ('walltime','7200'),
+					  ('mem','990mb')
 			              ],
                                       Error_Path=Error_Path,
                                       Output_Path=Output_Path,
@@ -294,3 +327,5 @@ if __name__=='__main__':
 
 
 
+if __name__=='__main__':
+	main()
