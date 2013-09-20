@@ -4,13 +4,13 @@ from pg import DB
 from sys import stderr,stdout,stdin,argv,exit
 import psycopg2
 from StringIO import StringIO
+from psycopg2 import InternalError,IntegrityError
 from odincal.config import config
 from datetime import datetime
-
+from odincal.config import config
 
 class db(DB):
     def __init__(self):
-        #DB.__init__(self,dbname='odin_test')
 	DB.__init__(self,dbname='odin',user='odinop',host='malachite',passwd='0d!n-cth')
 
 def djl(year, mon, day, hour, min, secs):
@@ -30,9 +30,10 @@ def att_level1_importer(stwa,stwb,soda,backend):
                        where (soda is NULL or soda!={2})
                        and ac_level0.stw>={0} and ac_level0.stw<={1}
                        and ac_level0.backend='{3}' '''.format(*temp))
+    
     sigresult=query.dictresult()
-    fgr = StringIO()
     print len(sigresult)
+    fgr = StringIO()
     for sig in sigresult:
         keys=[sig['stw'],soda]
 	query=con.query('''select year,mon,day,hour,min,secs,stw,
@@ -42,7 +43,7 @@ def att_level1_importer(stwa,stwb,soda,backend):
                            and soda={1}
                            order by stw'''.format(*keys))
 	result=query.dictresult()
-	if len(result)>0:
+	if len(result)>0: 
             #interpolate attitude data to desired stw
             #before doing the actual processing
             stw=float(sig['stw'])-sig['inttime']*16.0/2.0
@@ -89,7 +90,7 @@ def att_level1_importer(stwa,stwb,soda,backend):
             s=odin.Spectrum()
             s.stw=long(stw)
             s.Attitude(t)
-	    fgr.write(  str(sig['stw'])                             +'\t'+
+            fgr.write(  str(sig['stw'])                             +'\t'+
                         str(sig['backend'])                         +'\t'+     
                         str(soda)                                   +'\t'+
                         str(s.mjd)                                  +'\t'+
@@ -114,16 +115,34 @@ def att_level1_importer(stwa,stwb,soda,backend):
                         str(s.vlsr)                                 +'\t'+
                         str(s.level)                                +'\t'+
                         str(datetime.now())                         +'\n')
-    conn = psycopg2.connect("dbname=odin user=odinop host=malachite password=0d!n-cth")
+    conn = psycopg2.connect(config.get('database','pgstring'))
     cur = conn.cursor()
     fgr.seek(0)
     cur.execute("create temporary table foo ( like attitude_level1 );")
     cur.copy_from(file=fgr,table='foo')
+    try:
+        cur.execute("delete from attitude_level1 ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
+        cur.execute("insert into attitude_level1 (select * from foo)") 
+    except (IntegrityError,InternalError) as e:
+        print e
+        try:
+            conn.rollback()
+            cur.execute("create temporary table foo ( like attitude_level1 );")
+            cur.copy_from(file=fgr,table='foo')
+            cur.execute("delete from attitude_level1 ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
+            cur.execute("insert into attitude_level1 (select * from foo)")
+        
+        except (IntegrityError,InternalError) as e1:
+            print e1
+	    conn.rollback()
+	    conn.close()
+    	    con.close()
+            return 1
+            
     fgr.close()
-    cur.execute("delete from attitude_level1 ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
-    cur.execute("insert into attitude_level1 (select * from foo)")
     conn.commit()
     conn.close()      
     con.close()
+    return 0
             
 
