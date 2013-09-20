@@ -4,8 +4,9 @@ from math import erfc, erf, pi, sqrt, exp,cos
 from pg import DB
 import ctypes 
 from pkg_resources import resource_filename
-import matplotlib.pyplot as pyplt
+#import matplotlib.pyplot as pyplt
 import psycopg2
+from psycopg2 import InternalError,IntegrityError
 from StringIO import StringIO
 from odincal.config import config
 from datetime import datetime
@@ -58,7 +59,7 @@ class Level1a:
             return 0,0
         #perform an fft of data
 	librarypath=resource_filename('odincal','dummy').replace(
-	'odincal/odincal/dummy','parts/oops/lib/libfft.so')
+        'odincal/odincal/dummy','parts/oops/lib/libfft.so')
         libc=ctypes.CDLL(librarypath,mode=3)
         n0=ctypes.c_int(112*self.maxchips)
         c_float_p = ctypes.POINTER(ctypes.c_double)
@@ -154,15 +155,15 @@ def ac_level1a_importer(stwa,stwb,backend):
     query=con.query('''select ac_level0.stw,ac_level0.backend,
                  acd_mon,cc,mode from
                  ac_level0 
-                 left join ac_level1a using (stw)
+                 left join ac_level1a using (backend,stw)
                  where ac_level1a.stw is Null 
                  and ac_level0.stw>={0} and ac_level0.stw<={1}
                  and ac_level0.backend='{2}' '''.format(*temp))
     
     result=query.dictresult()
     ac=Level1a()
-    print len(result)
     fgr = StringIO()
+    print len(result)
     for ind,rowb in enumerate(result):
         acd_mon=numpy.ndarray(shape=(8,2),dtype='float64',
                               buffer=con.unescape_bytea(rowb['acd_mon']))
@@ -181,26 +182,39 @@ def ac_level1a_importer(stwa,stwb,backend):
         a=numpy.zeros(shape=(8*112,))
         for ind,band in enumerate(band_start):
             a[band*112:(band+len(chips[ind]))*112]=ac.got[ind]
-        data=con.escape_bytea(abs(a).tostring())
 	fgr.write(
               str(rowb['stw'])                          +'\t'+
               str(rowb['backend'])                      +'\t'+
               '\\\\x' + abs(a).tostring().encode('hex') +'\t'+               
               str(datetime.now())                       +'\n')
 	
-    conn = psycopg2.connect("dbname=odin user=odinop host=malachite password=***REMOVED***")
+    conn = psycopg2.connect(config.get('database','pgstring'))
     cur = conn.cursor()
     fgr.seek(0)
     cur.execute("create temporary table foo ( like ac_level1a );")
     cur.copy_from(file=fgr,table='foo')
+    try:
+        cur.execute("delete from ac_level1a ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
+        cur.execute("insert into ac_level1a (select * from foo)")
+    except (IntegrityError,InternalError) as e:
+       	print e
+        try:
+        	conn.rollback()
+                cur.execute("create temporary table foo ( like ac_level1a );")
+                cur.copy_from(file=fgr,table='foo')
+                cur.execute("delete from ac_level1a ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
+                cur.execute("insert into ac_level1a (select * from foo)")
+        except (IntegrityError,InternalError) as e1:
+                print e1
+                conn.rollback()
+		conn.close()
+		con.close()
+                return 1
     fgr.close()
-    cur.execute("delete from ac_level1a ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
-    cur.execute("insert into ac_level1a (select * from foo)")
     conn.commit()
     conn.close()
-
-
     con.close()
+    return 0
 
 
 
