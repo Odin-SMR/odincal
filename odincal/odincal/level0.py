@@ -11,6 +11,10 @@ from datetime import datetime
 import psycopg2
 from StringIO import StringIO
 from odincal.config import config
+import logging
+from odincal.logclient import set_odin_logging
+
+
 
 class db(DB):
     def __init__(self):
@@ -500,6 +504,9 @@ def import_file(datafile):
     stw_overflow= basename(datafile).startswith('1')
     extension = splitext(datafile)[1]
     fgr = StringIO()
+    set_odin_logging()
+    logger = logging.getLogger('level0 process')
+    logger.info('importing file {0}'.format(datafile))
     if extension == '.ac1' or extension == '.ac2':
         f = ACfile(datafile)
         f2 = ACfile(datafile)
@@ -536,6 +543,13 @@ def import_file(datafile):
         fgr.seek(0)
         cur.execute("create temporary table foo ( like ac_level0 );")
         cur.copy_from(file=fgr,table='foo')
+	cur.execute("select stw,count(*) from foo group by stw having count(*)>1")
+        cur2 = conn.cursor()
+        for r in cur:
+            print r
+            cur2.execute('''delete from foo where stw={0} and 
+                        created=any(array(select created from foo where stw={0} limit {1}))'''.format(*[r[0],r[1]-1]))
+        cur2.close()
         fgr.close()
         cur.execute("delete from  ac_level0 ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
         cur.execute("insert into ac_level0 (select * from foo)")
@@ -564,7 +578,14 @@ def import_file(datafile):
         cur = conn.cursor()
         fgr.seek(0)
         cur.execute("create temporary table foo ( like fba_level0 );")
-        cur.copy_from(file=fgr,table='foo')
+	cur.copy_from(file=fgr,table='foo')
+        cur.execute("select stw,count(*) from foo group by stw having count(*)>1")
+        cur2 = conn.cursor()
+        for r in cur:
+	    print r
+            cur2.execute('''delete from foo where stw={0} and 
+			created=any(array(select created from foo where stw={0} limit {1}))'''.format(*[r[0],r[1]-1]))
+	cur2.close()
         fgr.close()
         cur.execute("delete from  fba_level0 fba using foo f where f.stw=fba.stw")
         cur.execute("insert into fba_level0 (select * from foo)")
@@ -620,6 +641,13 @@ def import_file(datafile):
         fgr.seek(0)
         cur.execute("create temporary table foo ( like shk_level0 );")
         cur.copy_from(file=fgr,table='foo')
+	cur.execute("select stw,shk_type,count(*) from foo group by stw,shk_type having count(*)>1")
+        cur2 = conn.cursor()
+        for r in cur:
+            print r
+            cur2.execute('''delete from foo where stw={0} and shk_type='{1}' and 
+                        created=any(array(select created from foo where stw={0} and shk_type='{1}' limit {2}))'''.format(*[r[0],r[1],r[2]-1]))
+        cur2.close()
         fgr.close()
         cur.execute("delete from  shk_level0 shk using foo f where f.stw=shk.stw")
         cur.execute("insert into shk_level0 (select * from foo)")

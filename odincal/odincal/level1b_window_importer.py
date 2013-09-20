@@ -1,5 +1,6 @@
 import numpy
 import copy
+import datetime
 from odin import odin
 import pg
 from pg import DB,ProgrammingError
@@ -9,6 +10,8 @@ from odincal.reference_fit import Ref_fit
 from odincal.ac_level1a_importer import ac_level1a_importer
 from odincal.att_level1_importer import att_level1_importer
 from odincal.shk_level1_importer import shk_level1_importer
+import logging
+from odincal.logclient import set_odin_logging
 
 
 class db(DB):
@@ -22,9 +25,9 @@ class Level1b_cal():
         self.spectra=spectra
         self.calstw=calstw
         self.con=con
-    def calibrate(self):
+    def calibrate(self,version):
         """Do intensity calibration for all receivers."""
-        VERSION = 0x0009
+        VERSION = version
         (sig,ref,cal) = self.sortspec(self.spectra)
         self.checkaltitude(sig)
         if len(sig) == 0:
@@ -33,22 +36,24 @@ class Level1b_cal():
         #if ns < 5:
         #    return None
         if len(ref) > 0:
-            ref = self.cleanref(ref)
+	    if version==9:
+            	ref = self.cleanref(ref)
         if len(ref) == 0:
-            odin.Warn("no reference spectra found") 
+            #odin.Warn("no reference spectra found") 
             return None,VERSION,None
+ 	print len(cal)
         if len(cal) > 0:
             cal = self.cleancal(cal, ref)
         if len(cal) == 0:
-            odin.Warn("no calibration spectra found")
+            #odin.Warn("no calibration spectra found")
             return None,VERSION,None
         print 'skyfreq',ref[0].skyfreq/1e9
-
         #some tests
         #now we are calibrating reference spectra as well
         #so now we remove these reference spectra that
         #where filtered out
-        sig=self.cleansigref(sig,ref)
+	if version==9:
+        	sig=self.cleansigref(sig,ref)
         C = self.medTsys(cal)
         nref = len(ref)
         (rstw,rmat,inttime,start) = self.matrix(ref)
@@ -70,18 +75,17 @@ class Level1b_cal():
             s = copy.copy(t)
             stw = float(s.stw)
             R = ref[0]
-            if t.ref==1:
-                for indrstw in enumerate(rstw):
-                    if indrstw==t.stw:
-                        rstwnew=numpy.array(rstw[rstw!=indrstw])
-                        rmatnew=numpy.array(rmat[rstw!=indrstw,:])
-                        inttimenew=numpy.array(inttime[rstw!=indrstw,:])
-                        startnew=numpy.array(start[rstw!=indrstw,:])
-                        R.data = self.interpolate(rstwnew, rmatnew, 
-                                                  stw,inttimenew,
-                                                  startnew)
+	    if t.ref==1:
+		try:
+			rind=numpy.nonzero(rstw==stw)[0][0]
+			rstwnew=numpy.delete(rstw,rind)
+			rmatnew=numpy.delete(rmat,rind,0)
+    			R.data = self.interpolate(rstwnew, rmatnew, 
+                                       		stw,0,0)
+		except:
+			R.data = self.interpolate(rstw, rmat, stw,0,0)
             else:
-                R.data = self.interpolate(rstw, rmat, stw,inttime,start)
+                R.data = self.interpolate(rstw, rmat, stw,0,0)
             self.calibrate1(s,R.data,gain.data, 1.0)
                 
             T = numpy.take(gain.data,numpy.nonzero(gain.data)[0])
@@ -91,7 +95,7 @@ class Level1b_cal():
             d = numpy.take(s.data, numpy.nonzero(s.data))
             mean = numpy.add.reduce(d[0])/d[0].shape[0]
             msq = numpy.sqrt(numpy.add.reduce((d[0]-mean)**2)/(d[0].shape[0]-1))
-            if mean < -1.0 or mean > 300.0:
+            if version==9 and (mean < -1.0 or mean > 300.0):
                 #odin.Warn("spectrum mean out of range: %10.1f" % (mean))
                 continue
             if s.altitude > maxalt:
@@ -231,7 +235,7 @@ class Level1b_cal():
             return
         (rstw,rmat,inttime,start) = self.matrix(ref)
         ns = rmat.shape[0]
-        R = cal[0]
+        R = copy.copy(cal[0])
         (Tmin,Tmax) = self.acceptableTsys(R.frontend)
         for k in range(len(cal)):
             stw = float(cal[k].stw)
@@ -541,7 +545,7 @@ class Level1b_cal():
         f = sig.skyfreq
         Tbg = planck(2.7, f);
         spill = etaMS*Tbg - (etaMS-eta)*Tspill;
-        data=numpy.zeros(shape=len(sig.data),)
+        #data=numpy.zeros(shape=len(sig.data),)
         #for i in range(0,len(sig.data)):
         #    data[i]=sig.data[i]-ref[i]
         #    if (ref[i] > 0.0):
@@ -552,9 +556,12 @@ class Level1b_cal():
         #        
         #    else: 
         #        data[i] = 0.0
-        sig.data=((sig.data-ref)/ref*cal+spill)/eta
-	sig.data[ref<=0.0]=0
-	#sig.data=data
+	ok_ind=numpy.nonzero(ref>0.0)[0]
+        data=numpy.zeros(shape=len(sig.data),)
+	data[ok_ind]=((sig.data[ok_ind]-ref[ok_ind])/ref[ok_ind]*cal[ok_ind]+spill)/eta
+	#sig.data=((sig.data-ref)/ref*cal+spill)/eta
+        #sig.data[ref<=0.0]=0.0
+	sig.data=data
         sig.type = 'SPE'
 
     def sortspec(self, spectra):
@@ -581,12 +588,15 @@ class Level1b_cal():
             z = s.qerror[2]
             err = numpy.sqrt(x*x+y*y+z*z)
             if err > 20.0:
-                del spectra[i]
+		pass
+                #del spectra[i]
             elif numpy.add.reduce(s.qachieved) == 0.0:
-                del spectra[i]
+		pass
+                #del spectra[i]
             elif alt < 0.0 or alt > 120000.0:
-                odin.Warn("deleting altitude: %10.3f" % (alt/1000.0))
-                del spectra[i]
+		pass
+                #odin.Warn("deleting altitude: %10.3f" % (alt/1000.0))
+                #del spectra[i]
         n2 = len(spectra)
      
 
@@ -797,34 +807,54 @@ class Newer(Level1b_cal):
 
 
 
+def report_result(con,acfile,info):
+    temp=[acfile,info['version']]
+    con.query('''delete from in_process 
+                 where file='{0}' and version={1} '''.format(*temp))
+    if info['info']=='pg problem':
+        return
+    processtemp={'file':acfile,
+                 'info':info['info'],
+                 'total_scans':info['total_scans'],
+                 'success_scans':info['success_scans'],
+                 'version':info['version']}
+    con.query('''delete from processed 
+                     where file='{0}' and version={1} '''.format(*temp))
+    con.insert('processed',processtemp)
+
+
 
 
 
 def level1b_importer():
     
-    if len(argv)!=4:
+    if len(argv)!=5:
         print 'error in function call, example usage: bin/ipython level1b_importer acfile  AC2(backend) filter'
         exit(0)
 
     acfile=argv[1]
     backend=argv[2]
     ss=int(argv[3])
+    version=int(argv[4])
     con =db()
-
+    set_odin_logging()
+    logger = logging.getLogger('level1b process')
+    logger.info('processing file {0}'.format(acfile))
+    print acfile
     #find min and max stws from acfile
-    keys=[acfile]
+    temp=[acfile,version]
     query=con.query('''select min(stw),max(stw)
-                       from ac_level0 where file='{0}' '''.format(*keys))
+                       from ac_level0 where file='{0}' '''.format(*temp))
     result1=query.dictresult()
     if result1[0]['max']==None:
 	#no data from file imported in ac_level0 table
-        tempfile=[acfile]
-	con.query('''delete from in_process 
-                     where file='{0}' '''.format(*tempfile))
-        processtemp={'file':acfile,'info':'no ac data',
-                     'total_scans':0,'success_scans':0}
-        con.insert('processed',processtemp)
-        exit(0)	
+        info={'info': 'no ac data',
+              'total_scans': 0,
+              'success_scans': 0,
+              'version': version}
+        report_result(con,acfile,info)
+	logger.warning('no imported level0 ac data found for processing file {0}'.format(acfile))
+        return
 
     sodakeys=[result1[0]['min'],result1[0]['max']]
     sodaquery=con.query('''select soda 
@@ -832,30 +862,51 @@ def level1b_importer():
                        group by soda'''.format(*sodakeys))
     sodaresult=sodaquery.dictresult()
     if sodaresult==[]:
-        tempfile=[acfile]
-        con.query('''delete from in_process 
-                     where file='{0}' '''.format(*tempfile))
-        processtemp={'file':acfile,'info':'no attitude data',
-                     'total_scans':0,'success_scans':0}
-        con.insert('processed',processtemp)
-        exit(0)
+        info={'info': 'no attitude data',
+              'total_scans': 0,
+              'success_scans': 0,
+              'version': version}
+        report_result(con,acfile,info)
+        logger.warning('no imported level0 attitude data found for processing file {0}'.format(acfile))
+        return
 
     soda=sodaresult[0]['soda']   
-    
     tdiff=45*60*16
-
     if ss==1:
         
         #attitude import 
-        att_level1_importer(result1[0]['min']-tdiff,result1[0]['max']+tdiff,
-                        sodaresult[0]['soda'],backend)
-    
+	print 'attitude'
+	print datetime.datetime.now()
+        error=att_level1_importer(result1[0]['min']-tdiff,
+                                  result1[0]['max']+tdiff,
+                                  sodaresult[0]['soda'],backend)
+	print datetime.datetime.now()
+    	if error==1:
+            info={'info': 'pg problem',
+                  'total_scans': 0,
+                  'success_scans': 0,
+                  'version': version}
+            report_result(con,acfile,info)
+            return
+
         #shk import
+	print 'shk'
+	print datetime.datetime.now()
         shk_level1_importer(result1[0]['min']-tdiff,result1[0]['max']+tdiff,backend)
+	print datetime.datetime.now()
 
         #ac level1a import
-        ac_level1a_importer(result1[0]['min']-tdiff,result1[0]['max']+tdiff,backend)
-    
+	print 'ac'
+	print datetime.datetime.now()
+        error=ac_level1a_importer(result1[0]['min']-tdiff,result1[0]['max']+tdiff,backend)
+	print datetime.datetime.now()
+	if error==1:
+            info={'info': 'pg problem',
+                  'total_scans': 0,
+                  'success_scans': 0,
+                  'version': version}
+            report_result(con,acfile,info)  
+            return    
     #find out which scans that starts in the file
     if backend=='AC1':
         stwoff=1
@@ -869,25 +920,26 @@ def level1b_importer():
                     natural join getscansac1({0},{1}) 
                     join shk_level1 using(stw,backend)
                     where start>={0} and start<={1}
-                    and backend='AC1' group by start order by start'''.format(*temp))
+                    and backend='AC1' group by start 
+                    order by start'''.format(*temp))
 
     if backend=='AC2':
         query=con.query('''select start from ac_level0 
                     natural join getscansac2({0},{1})
                     join shk_level1 using(stw,backend)
                     where start>={0} and start<={1}
-                    and backend='AC2' group by start order by start'''.format(*temp))
+                    and backend='AC2' group by start 
+                    order by start'''.format(*temp))
     result2=query.dictresult()
     if result2==[]:
-        tempfile=[acfile]
-        con.query('''delete from in_process 
-                     where file='{0}' '''.format(*tempfile))
-        processtemp={'file':acfile,'info':'no scans found in file',
-                     'total_scans':0,'success_scans':0}
-        con.insert('processed',processtemp)
+        info={'info':'no scans found in file',
+              'total_scans': 0,
+              'success_scans': 0,
+              'version': version}
+        report_result(con,acfile,info)
+        #logger.warning('no scans found for processing file {0}'.format(acfile))
         return
     
-
     success_scans=0
     total_scans=len(result2)
     firstscan=result2[0]['start']
@@ -939,45 +991,56 @@ def level1b_importer():
                        order by stw)'''.format(*temp))
          
     result=query.dictresult()
-    print str(len(result))+' rows of data in database used for processing'
+    db_rows=len(result)
+    #logger.info('{0} scans and {1} rows of data in database found for processing file {2}'.format(*[total_scans,db_rows,acfile]))
+
     if result==[]:
-        tempfile=[acfile]
-        con.query('''delete from in_process 
-                     where file='{0}' '''.format(*tempfile))
-        processtemp={'file':acfile,'info':'necessary data not available',
-                     'total_scans':0,'success_scans':0}
-        con.insert('processed',processtemp)
-        print 'could not extract all necessary data for processing '+backend 
+        info={'info':'necessary data not available',
+              'total_scans': 0,
+              'success_scans': 0,
+              'version': version}
+        report_result(con,acfile,info)
         return
         
     for index,row in enumerate(result2):
+          
+        result3=copy.deepcopy(result)
+        #group data by frontend
+        scanfrontends=[]
+        for row3 in result3:
+            if row3['start']==row['start']:
+                scanfrontends.append(row3['frontendsplit'])
+        scanfrontends=numpy.array(scanfrontends)
+        scanfrontends=numpy.unique(scanfrontends)
+        for scanfrontend in scanfrontends:
+            print scanfrontend
+            result3=copy.deepcopy(result)
+            level1b_window_importer(result3,row['start'],scanfrontend,
+                                        tdiff,con,soda,version)
+        success_scans=success_scans+1
 
-        print 'processing scan '+str(row['start'])+' nr '+str(index)+' of '+str(len(result2))
-        if 1:          
-	    result3=copy.deepcopy(result)
-            level1b_window_importer(result3,row['start'],tdiff,con,soda)
-            success_scans=success_scans+1
-        else:
-            pass
-
-    tempfile=[acfile]
-    con.query('''delete from in_process 
-                     where file='{0}' '''.format(*tempfile))
-    processtemp={'file':acfile,
-                     'total_scans':total_scans,'success_scans':success_scans}
-    con.insert('processed',processtemp)
+    info={'info':'',
+          'total_scans': total_scans,
+          'success_scans': success_scans ,
+          'version': version}
+    report_result(con,acfile,info)
+    #logger.info('processing of file {0} done'.format(acfile))
     con.close()
 
-def level1b_window_importer(result,calstw,tdiff,con,soda):
-   
-    #extract data from the "result" and do a frequency calibration
+def level1b_window_importer(result,calstw,scanfrontend,tdiff,con,soda,version):
+    print datetime.datetime.now()  
+    #extract data from the "result" and perform a calibration
     listofspec=[]
     start=0
     remove_ref=0
     remove_ref2=0
     remove_next_ref=0
     startspec=0
+    calnr=0
+    #loop over the data, filter data, and perform a frequency calibration
     for rowind,row in enumerate(result):
+        if row['frontendsplit']!=scanfrontend:
+            continue
         if row['start']>=calstw-tdiff and row['start']<=calstw+tdiff:
             pass
         else:
@@ -993,6 +1056,31 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
             remove_next_ref=1
             continue
 
+        #remove reference measurements from SK2
+        if row['sig_type']=='REF' and row['mech_type']=='SK2':
+            remove_next_ref=1
+            continue
+        if row['sig_type']=='REF' and row['mech_type']=='REF':
+            remove_next_ref=1
+            continue
+        
+
+        #remove data that where skybeam1 interfere with objects
+        EARTH1=0x0001
+        MOON1=0x0002
+        GALAX1=0x0004
+        SUN1=0x0008
+        if  (
+            (row['sig_type']=='REF' and row['mech_type']=='SK1') 
+            and
+            (
+                ( row['skybeamhit'] & EARTH1==EARTH1) or 
+                ( row['skybeamhit'] & MOON1==MOON1) or 
+                ( row['skybeamhit'] & SUN1==SUN1)
+                )):
+            continue
+
+
         #remove first refrence data after a calibration
         if row['sig_type']=='REF' and row['mech_type']=='CAL':
             remove_next_ref=1
@@ -1004,8 +1092,7 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
             remove_next_ref=remove_next_ref-1
             continue
         #if a scan has several calibration signals
-        #keep only the the second (the first has already
-        #been removed in the query)
+        #keep only the the second 
         if row['start']>start:
             start=row['start']
             start1=row['stw']
@@ -1024,20 +1111,14 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
                 continue
         
         if row['sig_type']=='REF' and row['mech_type']=='CAL':
-           row['sig_type']='CAL' 
+           row['sig_type']='CAL'
         spec=Spectra(con,row,0)
-        spec.tuning()
 	if spec.lofreq<1:
         	continue	
-	listofspec.append(spec)
-        if row['sig_type']=='REF' and (row['mech_type']=='SK1' or
-           row['mech_type']=='SK2' or row['mech_type']=='REF' ):
-             row['sig_type']='SIG'
-             spec=Spectra(con,row,1)
-             spec.tuning()
-             listofspec.append(spec)
-
-        if spec.frontend=='SPL':
+	#listofspec.append(spec)
+        
+        #print spec.frontend
+        if spec.frontend=='SPL': 
             #split data into two spectra
             aa=odin.Spectrum()
             aa.backend=spec.backend
@@ -1055,44 +1136,47 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
                 spec.data=s2.data
                 spec.intmode=s2.intmode
                 spec.frontend=s2.frontend
+            
+        spec.tuning()
+	if spec.lofreq<1:
+        	continue
+        listofspec.append(spec)
+
+        if row['sig_type']=='REF' and (row['mech_type']=='SK1' or
+           row['mech_type']=='SK2' or row['mech_type']=='REF' ):
+             row['sig_type']='SIG'
+             spec=Spectra(con,row,1)
+             #spec.tuning()
+             #listofspec.append(spec)
+             if spec.frontend=='SPL':
+                 #split data into two spectra
+                 aa=odin.Spectrum()
+                 aa.backend=spec.backend
+                 aa.channels=len(spec.data)
+                 aa.data=spec.data
+                 aa.lofreq=spec.lofreq
+                 aa.intmode=spec.intmode
+                 aa.frontend=spec.frontend
+                 (s1, s2) = aa.Split()
+                 if s1.frontend==row['frontendsplit']:
+                     spec.data=s1.data
+                     spec.intmode=s1.intmode
+                     spec.frontend=s1.frontend
+                 if s2.frontend==row['frontendsplit']:
+                     spec.data=s2.data
+                     spec.intmode=s2.intmode
+                     spec.frontend=s2.frontend
+             spec.tuning()
+             listofspec.append(spec)
         
-    #group data by frontend
-    #frontend=['495', '549', '555', '572']
-    frontend=[]
-    for row in listofspec:
-        frontend.append(row.frontend)
-    frontend=numpy.array(frontend)
-    frontends=numpy.unique(frontend)
-    if len(frontends)==0:
-	return
-    if len(frontends)==1:
-        fe={frontends[0] : [],
-            }
-    elif len(frontends)==2:
-        fe={frontends[0] : [],
-            frontends[1]:  [],
-            }
-    elif len(frontends)==3:
-        fe={frontends[0] : [],
-            frontends[1]:  [],
-            frontends[2]:  [],
-            }
-    elif len(frontends)==4:
-        fe={frontends[0] : [],
-            frontends[1]:  [],
-            frontends[2]:  [],
-            frontends[3]:  [],
-            }
-    for row in listofspec:
-        fe[row.frontend].append(row)
-    spectra=[]
-    frontends=fe.keys()
-    for frontend in frontends:
-        spectra=fe[frontend]
+    #now start the intensity calibration
+    if 1:
+        print len(listofspec)
         fsky=[]
-        for spec in spectra:
+        for spec in listofspec:
             fsky.append(spec.skyfreq)
         fsky=numpy.array(fsky)
+       
         # create vector with all indices of fsky where frequency
         # changes by more than one MHz
         modes = numpy.nonzero(abs(fsky[1:]-fsky[:-1]) > 1.0e6)
@@ -1105,14 +1189,15 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
             start=int(modes[m]+1)
             stop=int(modes[m+1])
             #ac=Level1b_cal(spectra[start:stop],calstw,con)
-            ac=Newer(spectra[start:stop],calstw,con)
+            ac=Newer(listofspec[start:stop],calstw,con)
             
             #intensity calibrate
-            (calibrated,VERSION,Tspill)=ac.calibrate()
+            (calibrated,VERSION,Tspill)=ac.calibrate(version)
             if calibrated==None:
                 continue
             #store data into database tables
             #ac_level1b (spectra) or ac_cal_level1b (tsys and ssb)
+	    print datetime.datetime.now()
             for s in calibrated:
                 specs=[]
                 fm=ac.freqMode(s)
@@ -1135,9 +1220,9 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
                     specs.append(s2)
                 else:
                     specs.append(s)
-
+		
                 for spec in specs: 
-		   	 
+		    #print 'insert cal'	 
                     #spec.data=spec.data[0:112]
                     if s.type=='SPE' and s.start==calstw:
                         temp={
@@ -1160,11 +1245,19 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
                     'sbpath'          :s.sbpath,
                     'calstw'          :calstw
                     }
-                        
-                        try:
-                            con.insert('ac_level1b',temp)
-                        except ProgrammingError:
-                            continue
+                    
+                        tempkeys=[
+                                temp['stw'],temp['backend'],
+                                temp['frontend'],temp['version'],
+                                temp['intmode'],temp['soda'],
+                                temp['sourcemode'],temp['freqmode']]
+                        con.query('''delete from ac_level1b 
+                     where stw={0} and backend='{1}' and frontend='{2}'
+                     and version={3} and intmode={4} and soda={5} and 
+                     sourcemode='{6}' and freqmode={7}'''.format(
+                                    *tempkeys))
+                        con.insert('ac_level1b',temp)
+                    #print 'insert done'
 		for spec in specs:
                     if s.type=='CAL' or s.type=='SSB':
 			print s.lofreq
@@ -1187,14 +1280,19 @@ def level1b_window_importer(result,calstw,tdiff,con,soda):
                     'sbpath'          :s.sbpath,
                     'tspill'          :Tspill,
                     }
-                        try:
-                            con.insert('ac_cal_level1b',temp)
-                        except  ProgrammingError:
-                            continue
-            
+        
+                        tempkeys=[
+                                temp['stw'],temp['backend'],
+                                temp['frontend'],temp['version'],
+                                temp['spectype'],temp['intmode'],
+                                temp['soda'],temp['sourcemode'],
+                                temp['freqmode']]
+                        con.query('''delete from ac_cal_level1b 
+                     where stw={0} and backend='{1}' and frontend='{2}'
+                     and version={3} and spectype='{4}' and intmode={5}
+                     and soda={6} and sourcemode='{7}' 
+                     and freqmode={8}'''.format(*tempkeys))
+                        con.insert('ac_cal_level1b',temp)
+                   
     
-                        
-
-
-
 
