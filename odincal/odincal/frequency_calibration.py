@@ -46,6 +46,7 @@ class Spectra:
         self.zerolag=numpy.array(self.cc[0:8,0])
         self.skybeamhit=data['skybeamhit']
         self.ssb_att=eval(data['ssb_att'].replace('{','(').replace('}',')'))
+	self.gain=[]
     def tuning(self):
 
         if self.frontend == '119':
