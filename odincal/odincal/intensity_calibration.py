@@ -48,7 +48,15 @@ class Level1b_cal():
             R = ref[0]
 	    R.data = self.interpolate(rstw, rmat, stw,0,0)
             self.calibrate1(s,R.data,Tsys.data, 1.0)
-                
+	    #calculate band average gain
+	    n=112
+	    bands=8
+	    s.gain=numpy.zeros(8)
+	    for band in range(bands):
+		i0 = band*n
+                i1 = i0+n
+		s.gain[band]=numpy.mean(R.data[i0:i1]/Tsys.data[i0:i1],0)
+   
             T = numpy.take(Tsys.data,numpy.nonzero(Tsys.data)[0])
             if T.shape[0] == 0:
                 return None,VERSION,None
@@ -56,16 +64,12 @@ class Level1b_cal():
             d = numpy.take(s.data, numpy.nonzero(s.data))
             mean = numpy.add.reduce(d[0])/d[0].shape[0]
             msq = numpy.sqrt(numpy.add.reduce((d[0]-mean)**2)/(d[0].shape[0]-1))
-            if version==9 and (mean < -1.0 or mean > 300.0):
-                #odin.Warn("spectrum mean out of range: %10.1f" % (mean))
-                continue
             if s.altitude > maxalt:
                 maxalt = s.altitude
             calibrated.append(s)
         ########## determination of baffle contribution ##########
         ### Tspill = zeros(8, Float)
         Tspill = []
-        Tspillnew=[]
         eff = []
         baf=[]
         bafstw=[]
