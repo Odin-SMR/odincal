@@ -1217,10 +1217,40 @@ and in this case all ac1-files from the 100 directory will be imported
 into the level0\underline{ }files table. 
 
 The /misc/pearl/odin/level0 directory
-is synchronized with the odin level0 data directory at KTH ??? using rsync. 
+is synchronized with the odin level0 data directory at KTH using rsync. 
 When an Odin level0-file is added or changed on the Chalmers file-system
 the processing system automatically detects this event, and imports this
 file to level0\underline{ }files table.
+
+Data is downloaded from PDC at KTH to the filesystem locally. This is done with the rsync command using a GSSAPI ticket. A valid kerberos ticket is needed to do this action.
+
+A crontab entry defines the action.
+\begin{verbatim}
+13 03 * * * rsync -T /tmp -aLKe "ssh -o 'GSSAPIKeyExchange yes'" \
+    --log-file=/home/odinop/odincal/rsync.log \
+    --exclude-from=/home/odinop/.pdc_excludes \
+    donal@pisces.pdc.kth.se:/data/odin/level0/ /misc/pearl/odin/level0/
+\end{verbatim}
+
+The --exclude-from refers to a file containing rules for wich directories should be used to syncronisation.
+
+\begin{verbatim}
++ ac1**
++ *.ac1
++ ac2**
++ *.ac2
++ shk**
++ *.shk
++ fba**
++ *.fba
++ att/
++ att/*
++ att_17/
++ att_17/*
++ *.att
+- *
+\end{verbatim}
+
 
 
 \subsubsection{Finding data to process}
@@ -1286,7 +1316,51 @@ to all scans that start within the ac-file and import data into level1b-tables
 (Table~\ref{table:level1bdata})
 
 \end{itemize}
- 
+
+\clearpage
+\newpage 
+Pseudo code describing the level0 to level1b data processing on a high level
+\begin{verbatim}
+acfile='100b8721.ac1'
+backend='AC1'
+version=8
+con=database_connection
+
+#instantiation of class Prepare_data 
+p=Prepare_data(acfile,backend,version,con)
+
+#find out max and min stw from acfile to calibrate
+stw1,stw2=p.get_stw_from_acfile()
+
+#find out which sodaversion we have for this data
+sodaversion=p.get_soda_version(stw1,stw2)
+
+#perform level0 data processing
+p.att_level1_process(stw1-45min, stw2+45min,sodaversion)
+p.shk_level1_process(stw1-45min, stw2+45min)
+p.ac_level1a_process(stw1-45min, stw2+45min)
+
+#find out which scans that start in the file to calibrate
+scanstarts=p.get_scan_starts(stw1,stw2)
+
+#get data to be used in calibration
+data=p.get_data_for_calibration(firstscan-45min,lastscan+45min,sodaversion)
+
+#loop over the scans
+for scanstart in scanstarts:
+  #filter data e.g remove undesired references
+  scandata=p.filter_data(data,scanstart+-45min)
+  #frequency calibrate data
+  scandata=frequency_calibrate(scandata)
+  #intensity calibrate data  
+  scandata=intensity_calibrate(scandata)
+  #database insert
+  database_insert(con,scandata)
+
+\end{verbatim}
+
+
+
 \subsubsection{Processing of level1-data}
 \label{sec:level1processing}
 
@@ -1588,10 +1662,16 @@ and this is taken into account by the division of \(c_{a}\) with
 signal of the scan). The intensity calibration scheme (version 8) 
 for a given scan can be summarised as:
 \begin{itemize}
-\item collect all relevant level0 and level1 data for the scan and for an additional time-period of \(\pm\)45 minutes 
+\item collect all relevant level0 and level1 data for the scan and for an 
+additional time-period of \(\pm\)45 minutes. 
+It is assured that only data with ssb attenuator settings
+as in the first load signal of the scan is used.
+Furthermore, only data where calibrated sky frequencies changes by less
+than 1 MHz from one signal to another is used.      
+
 \item filter data, i.e. remove untrusted reference signals:\newline
 Only sky beam signals from Sky Beam 1 (SK1) are used.
-An SK1 signal is only used if the previous
+A SK1 signal is only used if the previous
 reference signal was from SK1.
 SK1 signals with skybeamhit flags EARTH1, MOON1, and SUN1 are not used.
 Only the second load signal is used for each sequence of load signals
@@ -1726,8 +1806,63 @@ level1b-product.
 
 
 \section{The odincal package}
-\subsection{Package details}
-A description of the various parts of the package...
+\subsection{Package overview}
+
+The odincal package contains basically of two parts of code.
+One part of codes control and performs the processing
+and the second part of codes are used for reading level0-files. 
+
+Source codes to the programs controling the processing are
+found in directory 
+\begin{verbatim}
+odincal/odincal/odincal
+
+#import of filenames
+level0_file_importer.py
+test_serv.py
+
+#import of level0 data
+level0.py
+
+#import of level1 data
+ac_level1a_importer.py
+att_level1_importer.py
+shk_level1_importer.py
+
+#control of calibration
+level1b_window_importer2.py
+frequency_calibration.py
+intensity_calibration.py
+calibration_preprocess.py
+
+#import af average calibrated data
+ac_average_data_import.py
+ac_average_datafit_import.p
+
+#processing control
+process_level0_or_calibrate.py
+logserver.py
+
+#export of data
+level1b_exporter_32.py
+level1b_exporter_hdf5.py
+level1b_exporter_matlab.m
+
+
+\end{verbatim}
+
+
+Source codes used (by odincal/odincal/odincal/level0.py) for reading 
+level0-files are found
+in directory  
+\begin{verbatim}
+odincal/develop-eggs/pyodin-1.2.3gem-py2.7-linux-x86_64.egg/odin
+
+attitude.py #attitude file
+level0.py #ACfile,FBAfile, and SHKfile
+\end{verbatim}
+
+
 
 \section{Required packages and installation}
 This section describes what installation and configuration tasks that have to be completed to install the system from scratch.
@@ -1773,35 +1908,7 @@ In a new environment the datamodel must be installed, i.e. create tables and sto
 \end{verbatim}
 
 
-\subsection{Automatic downloading from PDC}
-Data is downloaded from PDC at KTH to the filesystem locally. This is done with the rsync command using a GSSAPI ticket. A valid kerberos ticket is needed to do this action.
 
-A crontab entry defines the action.
-\begin{verbatim}
-13 03 * * * rsync -T /tmp -aLKe "ssh -o 'GSSAPIKeyExchange yes'" \
-    --log-file=/home/odinop/odincal/rsync.log \
-    --exclude-from=/home/odinop/.pdc_excludes \
-    donal@pisces.pdc.kth.se:/data/odin/level0/ /misc/pearl/odin/level0/
-\end{verbatim}
-
-The --exclude-from refers to a file containing rules for wich directories should be used to syncronisation.
-
-\begin{verbatim}
-+ ac1**
-+ *.ac1
-+ ac2**
-+ *.ac2
-+ shk**
-+ *.shk
-+ fba**
-+ *.fba
-+ att/
-+ att/*
-+ att_17/
-+ att_17/*
-+ *.att
-- *
-\end{verbatim}
 
 
 

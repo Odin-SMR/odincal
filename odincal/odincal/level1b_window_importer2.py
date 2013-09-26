@@ -53,15 +53,20 @@ def frequency_calibrate(listof_uncal_spec,con):
     return listofspec
 
 def intensity_calibrate(listofspec,con,calstw,version,soda):        
-    '''Use the object Level1b_cal to perform intensity calibration,
-       and import the result to database tables
-       '''
+    '''Use the object Level1b_cal to perform intensity calibration
+       of a given scan and import the result to database tables.
+       The listofspec is assumed to contain data from a window
+       +-45 min around the scan to be calibrated. 
+    '''
+
     if 1:
         fsky=[]
+	scanstw=[]
         for spec in listofspec:
             fsky.append(spec.skyfreq)
+	    scanstw.append(spec.start)
         fsky=numpy.array(fsky)
-       
+       	scanstw=numpy.array(scanstw)
         # create vector with all indices of fsky where frequency
         # changes by more than one MHz
         modes = numpy.nonzero(abs(fsky[1:]-fsky[:-1]) > 1.0e6)
@@ -72,13 +77,19 @@ def intensity_calibrate(listofspec,con,calstw,version,soda):
         for m in range(len(modes)-1):
             start=int(modes[m]+1)
             stop=int(modes[m+1])
-            ac=Level1b_cal(listofspec[start:stop],calstw,con)
-            #ac=Newer(listofspec[start:stop],calstw,con)
-            
+            #check that this mode contain data from the
+            #scan to be calibrated
+            if any(scanstw[start:stop]==calstw):
+                pass
+            else:
+                continue
+
             #intensity calibrate
+            ac=Level1b_cal(listofspec[start:stop],calstw,con)
             (calibrated,VERSION,Tspill)=ac.calibrate(version)
             if calibrated==None:
                 continue
+
             #store data into database tables
             #ac_level1b (spectra) or ac_cal_level1b (tsys and ssb)
 	    print datetime.datetime.now()
@@ -101,6 +112,7 @@ def intensity_calibrate(listofspec,con,calstw,version,soda):
 		#return
                 #database insert
                 for spec in specs: 
+		    #print s.gain
 		    #print 'insert cal'	 
                     #spec.data=spec.data[0:112]
                     if s.type=='SPE' and s.start==calstw:
@@ -233,17 +245,18 @@ def level1b_window_importer():
         logger.warning('no imported level0 attitude data found for processing file {0}'.format(acfile))
         return
 
+    tdiff=45*60*16
     #perform level0 data processing
     if level0_process==1:
-       error=p.att_level1_process(stw1,stw2,sodaversion)
+       error=p.att_level1_process(stw1-tdiff,stw2+tdiff,sodaversion)
        if error==1:
            report_result(con,acfile,{'info': 'pg problem'})
            return
-       error=p.shk_level1_process(stw1,stw2)
+       error=p.shk_level1_process(stw1-tdiff,stw2+tdiff)
        if error==1:
            report_result(con,acfile,{'info': 'pg problem'})
            return
-       error=p.ac_level1a_process(stw1,stw2)
+       error=p.ac_level1a_process(stw1-tdiff,stw2+tdiff)
        if error==1:
            report_result(con,acfile,{'info': 'pg problem'})
            return
