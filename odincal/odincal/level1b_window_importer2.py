@@ -10,11 +10,15 @@ from odincal.logclient import set_odin_logging
 from odincal.calibration_preprocess import Prepare_data
 from odincal.frequency_calibration import Spectra
 from odincal.intensity_calibration import Level1b_cal,planck
+from odincal.config import config
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin',user='odinop',host='malachite.rss.chalmers.se',passwd='0d!n-cth')
-        #DB.__init__(self,dbname='odin_test')
+        DB.__init__(self,dbname=config.get('database','dbname'),
+                         user=config.get('database','user'),
+                         host=config.get('database','host'),
+                         passwd=config.get('database','passwd'),
+                         )
 
 
 def frequency_calibrate(listof_uncal_spec,con):
