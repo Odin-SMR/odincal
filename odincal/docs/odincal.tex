@@ -93,7 +93,7 @@ data and for the processing of data.
 \(odin\) is a PostgreSQL database, see e.g. \url{http://www.postgresql.org/docs/} for online PostgreSQL documentation.
 How to start a PostgreSQL interactive terminal is described in 
 Sect.~\ref{sec:usermanual}, and how to 
-acces the \(odin\) database using Matlab
+access the \(odin\) database using Matlab
 and Python is described in Sect.~\ref{sec:matlab} and~\ref{sec:python},
 respectively. 
 Section~\ref{sec:officialexport} describes the export of the
@@ -811,7 +811,7 @@ The Odin database is installed on malachite,  and the owner of
 the database is the user odinop. The following sections describe
 how to connect and issue queries to the Odin database.
 \label{sec:usermanual}
-\subsubsection{The PostgreSQL intercative terminal} 
+\subsubsection{The PostgreSQL interactive terminal} 
 \label{sec:psql}
 A PostgreSQL intercative terminal (\url{http://www.postgresql.org/docs/8.4/static/app-psql.html}), which enables you to type in queries 
 interactively and see the query results, 
@@ -1159,9 +1159,108 @@ odinop@malachite:~/odincal_tmp/odincal/odincal/odincal$
 The structure of the file produced has the same format as earlier
 level1b-files, although old reading routines will fail.
 
-\item into a matlab structure as:
+\item into a matlab structure as (a version of the function
+can be found at 
+/home/odinop/odincal\underline{ }tmp/test/level1b\underline{ }exporter\underline{ }matlab.m):
 \begin{verbatim}
->>[spec,ok]= level1b_exporter_matlab(46885,AC1,1)
+>>[L,ok]= level1b_exporter_matlab(46885,AC1,1)
+%Function level1b_exporter_matlab exports odin database data.
+%The fucntion exports calibration data from one orbit and backend 
+%and data is stored into a matlab structure.
+%
+%The function performs the following main tasks
+%1. find out which spectra that belongs to scans that start
+%within the orbit
+%2. export all target and calibration spectra information from the database 
+%and decode data into two array of structures
+%3. combine the two arrays into a single with data in correct order 
+%4. perform a second calibration step on data (if desired)   
+%
+% USAGE:  [L,ok]=level1b_exporter_matlab(orbit,backend,calibration_step2)
+%
+%    IN:      
+%             orbit: orbit number 
+%             backend: ('AC1' or 'AC2')
+%             calibration_step2:  (0 or 1)
+%             where 1 apply calibration_step2
+%
+%    OUT:     
+%             L.spec_h: struct with fields of Odin spectrum information
+%             L.y     : cell array holding spectra
+%             ok: 0 or 1 (0=data is not available)
+%
+% EXAMPLE USAGE [L,ok]=level1b_exporter_matlab(46885,'AC1',1);        
+%                
+%L = 
+%    spec_h: [1x1 struct]
+%         y: {1x2245 cell}       
+%
+%L.spec_h=
+%            Version: [1x2245 double]
+%              Level: [1x2245 double]
+%            Quality: [1x2245 double]
+%                STW: [1x2245 double]
+%                MJD: [1x2245 double]
+%              Orbit: [1x2245 double]
+%                LST: [1x2245 double]
+%             Source: [32x2245 char]
+%         Discipline: [1x2245 double]
+%              Topic: [1x2245 double]
+%           Spectrum: [1x2245 double]
+%            ObsMode: [1x2245 double]
+%               Type: [1x2245 double]
+%           Frontend: [1x2245 double]
+%            Backend: [1x2245 double]
+%         SkyBeamHit: [1x2245 double]
+%             RA2000: [1x2245 double]
+%            Dec2000: [1x2245 double]
+%            VSource: [1x2245 double]
+%          Longitude: [1x2245 double]
+%           Latitude: [1x2245 double]
+%           Altitude: [1x2245 double]
+%            Qtarget: [4x2245 double]
+%          Qachieved: [4x2245 double]
+%             Qerror: [3x2245 double]
+%             GPSpos: [3x2245 double]
+%            GPSvel: [3x2245 double]
+%             SunPos: [3x2245 double]
+%            MoonPos: [3x2245 double]
+%              SunZD: [1x2245 double]
+%               Vgeo: [1x2245 double]
+%               Vlsr: [1x2245 double]
+%               Tcal: [1x2245 double]
+%               Tsys: [1x2245 double]
+%             SBpath: [1x2245 double]
+%             LOFreq: [1x2245 double]
+%            SkyFreq: [1x2245 double]
+%           RestFreq: [1x2245 double]
+%     MaxSuppression: [1x2245 double]
+%    AttitudeVersion: [1x2245 double]
+%            FreqRes: [1x2245 double]
+%            FreqCal: [4x2245 double]
+%            IntMode: [1x2245 double]
+%            IntTime: [1x2245 double]
+%            EffTime: [1x2245 double]
+%           Channels: [1x2245 double]
+%           FreqMode: [1x2245 double]
+%             TSpill: [1x2245 double]
+%             ScanID: [1x2245 double]
+%
+%spectrum1=L.y{1} 
+%size(spectrum1)
+%  896 1
+%
+%--Handling of scan
+% 
+%scanid=unique( unique(L.spec_h.ScanID));
+%--find index for first scan                 
+%scan1_index=find(L.spec_h.ScanID==scanid(1));
+%--write spectra from scan 1 into matrix spectra_scan1
+%spectra_scan1=[L.y{scan1_index}];
+%size(spectra_scan1)=
+%  896    35
+
+
 \end{verbatim}
 \end{enumerate}
 
