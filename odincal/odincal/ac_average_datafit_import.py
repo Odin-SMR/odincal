@@ -1,11 +1,15 @@
 from numpy import ndarray,array,nonzero,array
 import numpy as N
 from pg import DB
+from odincal.config import config
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin',user='odinop',host='malachite.rss.chalmers.se',passwd='***REMOVED***')
-        #DB.__init__(self,dbname='odin_test')
+        DB.__init__(self,dbname=config.get('database','dbname'),
+                         user=config.get('database','user'),
+                         host=config.get('database','host'),
+                         passwd=config.get('database','passwd'),
+                         )
 
 
 def freq(lofreq,skyfreq,LO):
@@ -247,7 +251,7 @@ class Fit_spectrum():
         
 
 
-if __name__=='__main__':
+def main():
     '''fit data found in the ac_level1b_average table
        and import the fits to the ac_cal_level1c table'''
 

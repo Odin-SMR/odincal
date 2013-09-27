@@ -7,6 +7,7 @@ drop type shk_type cascade;
 drop type sourcemode cascade;
 drop type spectype cascade;
 
+
 drop table ac_level0 cascade;
 drop table ac_level1a cascade;
 drop table ac_level1b cascade;
@@ -21,7 +22,8 @@ drop table processed cascade;
 drop table level0_files cascade;
 drop table level0_files_imported cascade;
 drop table level0_files_in_process cascade;
-
+drop table ac_cal_level1c cascade;
+drop table ac_level1b_average cascade;
 
 
 create type backend as enum ('AC1','AC2');
@@ -39,6 +41,7 @@ create type spectype as enum ('SIG','REF','CAL','CMB','DRK','SK1','SK2','SPE',
 
 create table in_process(
    file varchar,
+   version int,
    created timestamp,
    constraint pk_in_process_data primary key (file)
 );
@@ -48,6 +51,7 @@ create table processed(
    total_scans int,
    success_scans int,
    info varchar,
+   version int,
    created timestamp default current_timestamp,
    constraint pk_processed_data primary key (file)
 );
@@ -91,6 +95,7 @@ create table ac_level0(
    created timestamp default current_timestamp,
    constraint pk_ac_data primary key (backend,stw)
 );
+CREATE INDEX ac_level0_file_idx ON ac_level0(file, stw);
 
 create table ac_level1a(
    stw bigint,
@@ -122,6 +127,8 @@ create table ac_level1b(
    created timestamp default current_timestamp,
    constraint pk_aclevel1b_data primary key (stw,backend,frontend,version,intmode,soda,sourcemode,freqmode)
 );
+CREATE INDEX ac_level1b_mode_idx ON ac_level1b(backend, frontend, version, sourcemode, freqmode, intmode);
+
 
 create table ac_cal_level1b(
    stw bigint,
@@ -142,8 +149,48 @@ create table ac_cal_level1b(
    sbpath real,
    tspill real,
    created timestamp default current_timestamp,
-   constraint pk_accallevel1b_data primary key (stw,backend,frontend,version,spectype,intmode,soda,sourcemode,freqmode)
+   constraint pk_accallevel1b_data primary key (stw,backend,frontend,version,
+spectype,intmode,soda,sourcemode,freqmode)
 );
+
+create table ac_level1b_average(
+   backend backend,
+   frontend frontend,
+   version int, 
+   intmode int,
+   sourcemode sourcemode,
+   freqmode int,
+   ssb_fq int[4],
+   hotload_range real[2],
+   altitude_range real[2],
+   median_spectra bytea,
+   mean_spectra bytea,
+   channels int,
+   created timestamp default current_timestamp,
+   skyfreq real,
+   lofreq real,
+   constraint pk_aclevel1average_data primary key (backend,frontend,version,
+intmode,sourcemode,freqmode, ssb_fq,hotload_range,altitude_range)
+);
+
+
+create table ac_cal_level1c(
+   backend backend,
+   frontend frontend,
+   version int, 
+   intmode int,
+   sourcemode sourcemode,
+   freqmode int,
+   ssb_fq int[4],
+   hotload_range real[2],
+   altitude_range real[2],
+   median_spectra bytea,
+   median_fit bytea,
+   channels int,
+   created timestamp default current_timestamp,
+   constraint pk_accallevel1c_data primary key (backend,frontend,version,intmode,sourcemode,freqmode, ssb_fq,hotload_range,altitude_range)
+);
+
 
 create table fba_level0(
    stw bigint,
@@ -201,6 +248,8 @@ create table attitude_level1(
    created timestamp default current_timestamp,
    constraint pk_attitudelevel1_data primary key (stw,backend,soda)
 );
+CREATE INDEX att_level1_alt_idx ON attitude_level1(backend, altitude);
+CREATE INDEX att_level1_orbit_idx ON attitude_level1(orbit, stw);
 
 create table shk_level0(
    stw bigint,
@@ -234,15 +283,18 @@ create table shk_level1(
    created timestamp default current_timestamp,
    constraint pk_shklevel1_data primary key (stw,backend,frontendsplit)
 );
+CREATE INDEX shk_level1_backend_idx ON shk_level1(backend, frontendsplit, stw);
+CREATE INDEX shk_level1_hotload_idx ON shk_level1(backend, hotloada);
 
 
-CREATE OR REPLACE FUNCTION public.getscansac2()
+CREATE OR REPLACE FUNCTION public.getscansac2(stw0 bigint,stw1 bigint)
  RETURNS SETOF scan
  LANGUAGE plpgsql
 AS $function$
 declare
    spectrum_curs cursor for select fba_level0.stw,mech_type from fba_level0 
-   natural join ac_level0 
+   join ac_level0 using(stw)
+   where stw>=stw0 and stw<=stw1
    order by stw;
    res scan%rowtype;
    prev_mech fba_level0.mech_type%type;
@@ -257,6 +309,7 @@ begin
       end if;
       res.start:=scanstart;
       res.stw:=r.stw;
+      res.mech_type=r.mech_type;
       prev_mech:=r.mech_type; 
       return next res;
    end loop;
@@ -272,6 +325,7 @@ declare
    spectrum_curs cursor for select fba_level0.stw,mech_type from fba_level0 
    join ac_level0 on (fba_level0.stw+1=ac_level0.stw)
    where ac_level0.stw>=stw0 and ac_level0.stw<=stw1
+   and fba_level0.stw>=stw0-1 and fba_level0.stw<=stw1+1
    order by stw;
    res scan%rowtype;
    prev_mech fba_level0.mech_type%type;

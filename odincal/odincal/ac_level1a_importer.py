@@ -55,7 +55,8 @@ class Level1a:
         if data[0]==0:
             return 0,0
         #perform an fft of data
-        librarypath=resource_filename('oops','libfft.so')
+	librarypath=resource_filename('odincal','dummy').replace(
+        'odincal/odincal/dummy','parts/oops/lib/libfft.so')
         libc=ctypes.CDLL(librarypath,mode=3)
         n0=ctypes.c_int(112*self.maxchips)
         c_float_p = ctypes.POINTER(ctypes.c_double)
@@ -151,14 +152,14 @@ def ac_level1a_importer(stwa,stwb,backend):
     query=con.query('''select ac_level0.stw,ac_level0.backend,
                  acd_mon,cc,mode from
                  ac_level0 
-                 left join ac_level1a using (stw)
+                 left join ac_level1a using (backend,stw)
                  where ac_level1a.stw is Null 
                  and ac_level0.stw>={0} and ac_level0.stw<={1}
                  and ac_level0.backend='{2}' '''.format(*temp))
     
     result=query.dictresult()
     ac=Level1a()
-    lines=[]
+    fgr = StringIO()
     print len(result)
     for ind,rowb in enumerate(result):
         acd_mon=numpy.ndarray(shape=(8,2),dtype='float64',

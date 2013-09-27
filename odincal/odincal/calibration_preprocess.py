@@ -6,12 +6,15 @@ from odincal.shk_level1_importer import shk_level1_importer
 import pg
 from pg import DB
 from sys import stderr,stdout,stdin,argv,exit
+from odincal.config import config
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin',user='odinop',host='malachite.rss.chalmers.se',passwd='***REMOVED***')
-        #DB.__init__(self,dbname='odin_test')
-
+        DB.__init__(self,dbname=config.get('database','dbname'),
+                         user=config.get('database','user'),
+                         host=config.get('database','host'),
+                         passwd=config.get('database','passwd'),
+                         )
 
 
 class Prepare_data():
@@ -186,9 +189,11 @@ def main():
      
     #acfile='100b8721.ac1'
     #backend='AC1'
-    acfile=argv[1]
-    backend=argv[2]
-
+    backend=argv[1]
+    acfile=argv[2]
+    level0_process=1
+    version=8
+    tdiff=45*60*16
     con=db()
 
     p=Prepare_data(acfile,backend,version,con)
@@ -215,20 +220,20 @@ def main():
 
     #perform level0 data processing
     if level0_process==1:
-       error=p.att_level1_process(stw1,stw2,sodaversion)
+       error=p.att_level1_process(stw1-tdiff,stw2+tdiff,sodaversion)
        if error==1:
            print {'info': 'pg problem'}
            return
-       error=p.shk_level1_process(stw1,stw2)
+       error=p.shk_level1_process(stw1-tdiff,stw2+tdiff)
        if error==1:
            print {'info': 'pg problem'}
            return
-       error=p.ac_level1a_process(stw1,stw2)
+       error=p.ac_level1a_process(stw1-tdiff,stw2+tdiff)
        if error==1:
            print {'info': 'pg problem'}
            return
     
-       con.close()
+    con.close()
    
 
 if __name__=='__main__':

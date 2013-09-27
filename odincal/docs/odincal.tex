@@ -1202,24 +1202,22 @@ The necessary processing for this task is decribed
 in Sect~\ref{sec:level1processing}.
 
 
+
+
 %The tables
 %see Table~\ref{table:processfile}
 \subsubsection{Registration of level0-files}
 \label{sec:registration}
 One of the most basic task to be performed by the processing system is the
 registration of level0-files into the level0\underline{ }files table.
-This can be done manually by the command:
-\begin{verbatim}
-/odincal_tmp/odincal/odincal/odincal$../../bin/odinpy 
-level0_file_importer.py /misc/pearl/odin/level0/ac1/100/*
-\end{verbatim}
-and in this case all ac1-files from the 100 directory will be imported
-into the level0\underline{ }files table. 
+This can be done manually using the program \(level0file2db\)
+(Sect.~\ref{sec:programs}), and new files are automatically
+imported by the program \(level0file\_server\).
 
 The /misc/pearl/odin/level0 directory
 is synchronized with the odin level0 data directory at KTH using rsync. 
 When an Odin level0-file is added or changed on the Chalmers file-system
-the processing system automatically detects this event, and imports this
+\(level0file\_server\)  detects this event, and imports this
 file to level0\underline{ }files table.
 
 Data is downloaded from PDC at KTH to the filesystem locally. This is done with the rsync command using a GSSAPI ticket. A valid kerberos ticket is needed to do this action.
@@ -1283,8 +1281,7 @@ ac-file.
 The import of level0-data from level0-files
 into the level0-data tables (see Table~\ref{table:level0data})
 can be seen as a simple transfer (including decoding of data from the file) 
-of data. The function import\underline{ }file within the file\\ 
-/odincal/odincal/odincal/level0.py is responsible for this task.  
+of data. The program \(level0data2db\) is responsible for this task.  
  
 
 \subsubsection{Processing of level0-data}
@@ -1305,11 +1302,8 @@ within the given ac-file,
 that is, import of data (ac-, attitude-, and shk-data) , which is not 
 yet imported, into the level1-data tables (Table~\ref{table:level1data}) 
 for the time-span of the scans \(\pm\)45 minutes,
-(ac\underline{ }level1a\underline{ }importer.py,
-att\underline{ }level1\underline{ }importer.py,
-shk\underline{ }level1\underline{ }importer.py found in the 
-odincal/odincal/odincal directory are responsible for these tasks)
-
+(The first two step is equivalent to what the program \(level1data2db\)
+(Sect.~\ref{sec:programs}) is designed for)
 \item Apply the calibration routine:\newline
 apply the calibration routine described in Sect.\ref{sec:part1}
 to all scans that start within the ac-file and import data into level1b-tables
@@ -1373,20 +1367,75 @@ Two types of processing jobs are defined for this task.
 The first task is to extract average data from measurements
 at high tangent altitudes for each mode, and import data to the
 ac\underline{ }level1b\underline{ }average table.
-This can be performed by the command:
-\begin{verbatim}
-$>../../bin/odinpy ac_average_data_import.py
-\end{verbatim}
+This is done by the program \(ac\_average\_data\_import\).
 
 The second task is to estimate fits to the average data
 in table ac\underline{ }level1b\underline{ }average
 and import data to the ac\underline{ }cal\underline{ }level1c table.
-This can be performed by the command:
+This is done by the program \(ac\_average\_datafit\_import\).
+
+
+\subsection{Program overview}
+\label{sec:programs}
+The main programs of the odincal package is shown below.
 \begin{verbatim}
-$>../../bin/odinpy ac_average_datafit_import.py
+#import of level0-filenames to database table level0_files
+
+$> bin/level0file2db /misc/pearl/odin/level0/ac1/100/*
+$> bin/level0file2db /misc/pearl/odin/level0/shk/100/*
+$> bin/level0file2db /misc/pearl/odin/level0/fba/100/*
+$> bin/level0file2db /misc/pearl/odin/level0/att/100/*
+------------------------------------------------------------
+
+#This program is responsible for keep track of and import new 
+#level0-files into table level0_files
+$> bin/level0file_server   
+------------------------------------------------------------  
+
+#import of level0-data to database tables:
+#ac_level0, shk_level0, attitude_level0, fba_level0
+
+$> bin/level0data2db /misc/pearl/odin/level0/ac1/100/*
+$> bin/level0data2db /misc/pearl/odin/level0/shk/100/*
+$> bin/level0data2db /misc/pearl/odin/level0/fba/100/*
+$> bin/level0data2db /misc/pearl/odin/level0/att/100/*
+------------------------------------------------------------
+
+#calibration prepration
+#import data to database tables: ac_level1a, attitude_level1, 
+#and shk_level1.
+#The  program import data for a window +-45 minutes outside of 
+#the ac-file limits.
+
+$> bin/level1data2db AC1 100a1aed.ac1
+------------------------------------------------------------
+
+#calibration (step1)
+#import of data to database tables: ac_level1b and ac_cal_level1b
+$> bin/level1b_window_importer acfile backend(AC1|AC2) cal_prep(0|1) version
+for example:
+$> bin/level1b_window_importer 100a1aed.ac1 AC1 1 8
+-------------------------------------------------------------
+
+#import of data to database tables: ac_level1b_average and 
+#ac_cal_level1c
+
+$> bin/ac_average_data_import
+$> bin/ac_average_datafit_import
+--------------------------------------------------------------
+
+#finding "jobs" and sending jobs to queing system
+
+$> bin/process_level0_or_calibrate
+--------------------------------------------------------------
+
+#write messages to log-file during processing
+$> bin/odinlogserver
+--------------------------------------------------------------
+
+#export database data
+
 \end{verbatim}
-
-
 
 
 
@@ -1418,9 +1467,10 @@ In this example, data from two periods 2013-04-01 --today (highest priority)
 and 2009-05-01 -- 2009-09-30
 is intended to be calibrated, with calibration version 8.
 
-\subsubsection{Running the processing}
+\subsubsection{Running the processing system}
 Make sure the configuration file (Sect.~\ref{sec:config}) contains
 the information you want.  
+Start the programs \(odinlogserver\) and \(level0file\_server\).
 The processing system is intended to be run from a crontab.
 The odin level0-files are expected to be found
 under the /misc/pearl/odin/level0/ directory.
@@ -1437,7 +1487,7 @@ and sends ``processing jobs'' to the queing system for later execution.
 
 When a substantial part of all data has been processed,
 the processing of average data can be performed, as described in
-Sect.~\ref{sec:level1processing}.
+Sect.~\ref{sec:programs}.
 
 \subsubsection*{Processing problem}
 When sending processing job, e.g. the calibration of the 
@@ -1801,67 +1851,7 @@ level1b-product.
 \end{itemize}
 
       
-  
-
-
-
-\section{The odincal package}
-\subsection{Package overview}
-
-The odincal package contains basically of two parts of code.
-One part of codes control and performs the processing
-and the second part of codes are used for reading level0-files. 
-
-Source codes to the programs controling the processing are
-found in directory 
-\begin{verbatim}
-odincal/odincal/odincal
-
-#import of filenames
-level0_file_importer.py
-test_serv.py
-
-#import of level0 data
-level0.py
-
-#import of level1 data
-ac_level1a_importer.py
-att_level1_importer.py
-shk_level1_importer.py
-
-#control of calibration
-level1b_window_importer2.py
-frequency_calibration.py
-intensity_calibration.py
-calibration_preprocess.py
-
-#import af average calibrated data
-ac_average_data_import.py
-ac_average_datafit_import.p
-
-#processing control
-process_level0_or_calibrate.py
-logserver.py
-
-#export of data
-level1b_exporter_32.py
-level1b_exporter_hdf5.py
-level1b_exporter_matlab.m
-
-
-\end{verbatim}
-
-
-Source codes used (by odincal/odincal/odincal/level0.py) for reading 
-level0-files are found
-in directory  
-\begin{verbatim}
-odincal/develop-eggs/pyodin-1.2.3gem-py2.7-linux-x86_64.egg/odin
-
-attitude.py #attitude file
-level0.py #ACfile,FBAfile, and SHKfile
-\end{verbatim}
-
+ 
 
 
 \section{Required packages and installation}
@@ -1906,10 +1896,6 @@ In a new environment the datamodel must be installed, i.e. create tables and sto
 \begin{verbatim}  
   $> bin/create_datamodel
 \end{verbatim}
-
-
-
-
 
 
 \end{document}

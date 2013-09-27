@@ -1,10 +1,14 @@
 import numpy as N
 from pg import DB
+from odincal.config import config
 
 class db(DB):
     def __init__(self):
-        DB.__init__(self,dbname='odin',user='odinop',host='malachite.rss.chalmers.se',passwd='***REMOVED***')
-      
+        DB.__init__(self,dbname=config.get('database','dbname'),
+                         user=config.get('database','user'),
+                         host=config.get('database','host'),
+                         passwd=config.get('database','passwd'),
+                         )      
 
 def get_odin_data(con,backend,frontend,version,intmode,
                   sourcemode,freqmode,ssb_fq,
@@ -72,7 +76,7 @@ def get_odin_data(con,backend,frontend,version,intmode,
 
 
 
-if __name__=='__main__':
+def main():
     '''import average data from measuerements at high tangent points
        into the ac_level1b_average table'''
     con=db()
