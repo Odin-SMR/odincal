@@ -44,7 +44,7 @@ def import_file(file):
     conn.close()
     fgr.close()
 
-if __name__=='__main__':
+def main():
     files=argv[1::]
     fgr= StringIO()
     for file in files:
@@ -71,4 +71,5 @@ if __name__=='__main__':
     conn.commit()
     conn.close()
 
-
+if __name__=='__main__':
+    main()

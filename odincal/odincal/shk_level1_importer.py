@@ -1,11 +1,15 @@
 from odin import odin
 import numpy
 from pg import DB,ProgrammingError
+from odincal.config import config
 
 class db(DB):
     def __init__(self):
-        #DB.__init__(self,dbname='odin_test')
-	DB.__init__(self,dbname='odin',user='odinop',host='malachite',passwd='0d!n-cth')
+        DB.__init__(self,dbname=config.get('database','dbname'),
+                         user=config.get('database','user'),
+                         host=config.get('database','host'),
+                         passwd=config.get('database','passwd'),
+                         )
 
 def Lookup(table,stw0):
     i = 0
@@ -104,5 +108,6 @@ def shk_level1_importer(stwa,stwb,backend):
                     con.insert('shk_level1',shkdict)
                 except ProgrammingError:
                     pass
-            #query=con.query('''select LO from shk_level1''') 
-            #res=query.getresult()
+
+
+

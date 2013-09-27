@@ -9,9 +9,16 @@ from odincal.config import config
 from datetime import datetime
 from odincal.config import config
 
+
 class db(DB):
     def __init__(self):
-	DB.__init__(self,dbname='odin',user='odinop',host='malachite',passwd='0d!n-cth')
+        DB.__init__(self,dbname=config.get('database','dbname'),
+                         user=config.get('database','user'),
+                         host=config.get('database','host'),
+                         passwd=config.get('database','passwd'),
+                         )
+
+
 
 def djl(year, mon, day, hour, min, secs):
         dn = 367L*year - 7*(year+(mon+9)/12)/4 \

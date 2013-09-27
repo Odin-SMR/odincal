@@ -14,8 +14,12 @@ from datetime import datetime
 
 class db(DB):
     def __init__(self):
-        #DB.__init__(self,dbname='odin_test')
-	DB.__init__(self,dbname='odin',user='odinop',host='malachite',passwd='0d!n-cth')
+        DB.__init__(self,dbname=config.get('database','dbname'),
+                         user=config.get('database','user'),
+                         host=config.get('database','host'),
+                         passwd=config.get('database','passwd'),
+                         )
+
 
 class Level1a:
     """A class to process level 0 files into level 1a."""
@@ -215,6 +219,5 @@ def ac_level1a_importer(stwa,stwb,backend):
     conn.close()
     con.close()
     return 0
-
 
 
