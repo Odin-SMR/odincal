@@ -1,6 +1,6 @@
 %Function level1b_exporter_matlab exports odin database data.
 %The fucntion exports calibration data from one orbit and backend 
-%and data is stored into an struct array of structures.
+%and data is stored into a matlab structure.
 %
 %The function performs the following main tasks
 %1. find out which spectra that belongs to scans that start
@@ -10,7 +10,7 @@
 %3. combine the two arrays into a single with data in correct order 
 %4. perform a second calibration step on data (if desired)   
 %
-% USAGE:  [spectra,ok]=level1b_exporter_matlab(orbit,backend,calibration_step2)
+% USAGE:  [L,ok]=level1b_exporter_matlab(orbit,backend,calibration_step2)
 %
 %    IN:      
 %             orbit: orbit number 
@@ -19,18 +19,82 @@
 %             where 1 apply calibration_step2
 %
 %    OUT:     
-%             spectra: struct array of structures of odin data
+%             L.spec_h: struct with fields of Odin spectrum information
+%             L.y     : cell array holding spectra
 %             ok: 0 or 1 (0=data is not available)
-% EXAMPLE USAGE [spectra,ok]=level1b_exporter_matlab(46885,'AC1',1);        
-% here is some examples how to handle the data
-% data from the first spectrum:  spectra(1)
-% example get all spectra into a matrix
-% Tb=[spectra(:).Tb]; first spectrum is Tb(:,1)
-% find identifiers for all unique scans:
-% scan_id=unique([spectra(:).CALSTW]);
-% find all data from the 4th scan and get the spectra:
-% scan4_index=find([spectra(:).CALSTW]==scan_id(4))
-% Tb=[spectra(scan4_index).Tb];
+%
+% EXAMPLE USAGE [L,ok]=level1b_exporter_matlab(46885,'AC1',1);        
+%                
+%L = 
+%    spec_h: [1x1 struct]
+%         y: {1x2245 cell}       
+%
+%L.spec_h=
+%            Version: [1x2245 double]
+%              Level: [1x2245 double]
+%            Quality: [1x2245 double]
+%                STW: [1x2245 double]
+%                MJD: [1x2245 double]
+%              Orbit: [1x2245 double]
+%                LST: [1x2245 double]
+%             Source: [32x2245 char]
+%         Discipline: [1x2245 double]
+%              Topic: [1x2245 double]
+%           Spectrum: [1x2245 double]
+%            ObsMode: [1x2245 double]
+%               Type: [1x2245 double]
+%           Frontend: [1x2245 double]
+%            Backend: [1x2245 double]
+%         SkyBeamHit: [1x2245 double]
+%             RA2000: [1x2245 double]
+%            Dec2000: [1x2245 double]
+%            VSource: [1x2245 double]
+%          Longitude: [1x2245 double]
+%           Latitude: [1x2245 double]
+%           Altitude: [1x2245 double]
+%            Qtarget: [4x2245 double]
+%          Qachieved: [4x2245 double]
+%             Qerror: [3x2245 double]
+%             GPSpos: [3x2245 double]
+%            GPSvel: [3x2245 double]
+%             SunPos: [3x2245 double]
+%            MoonPos: [3x2245 double]
+%              SunZD: [1x2245 double]
+%               Vgeo: [1x2245 double]
+%               Vlsr: [1x2245 double]
+%               Tcal: [1x2245 double]
+%               Tsys: [1x2245 double]
+%             SBpath: [1x2245 double]
+%             LOFreq: [1x2245 double]
+%            SkyFreq: [1x2245 double]
+%           RestFreq: [1x2245 double]
+%     MaxSuppression: [1x2245 double]
+%    AttitudeVersion: [1x2245 double]
+%            FreqRes: [1x2245 double]
+%            FreqCal: [4x2245 double]
+%            IntMode: [1x2245 double]
+%            IntTime: [1x2245 double]
+%            EffTime: [1x2245 double]
+%           Channels: [1x2245 double]
+%           FreqMode: [1x2245 double]
+%             TSpill: [1x2245 double]
+%             ScanID: [1x2245 double]
+%
+%spectrum1=L.y{1} 
+%size(spectrum1)
+%  896 1
+%
+%--Handling of scan
+% 
+%scanid=unique( unique(L.spec_h.ScanID));
+%--find index for first scan
+%scan1_index=find(L.spec_h.ScanID==scanid(1));
+%--write spectra from scan 1 into matrix spectra_scan1
+%spectra_scan1=[L.y{scan1_index}];
+%size(spectra_scan1)=
+%  896    35
+
+
 
 function [spectra,ok]=level1b_exporter_matlab(orbit,backend,calibration_step2)
 
@@ -105,6 +169,11 @@ end
 
 %close connection
 close(conn)
+
+%transform structure of data
+[spectra]=convert_structure(spectra);
+
+
 ok=1;
 end
 %---end of main function-------------------------------------------------------
@@ -193,6 +262,28 @@ end
 
 for i=1:length(rs1);
    header={rs1{i,:}};
+ 
+   if isequal(char(header{10}),'AC1');
+      backend=1;
+   elseif isequal(char(header{10}),'AC2');
+      backend=2;
+   end
+  
+   if isequal(char(header{9}),'555');
+      frontend=1;
+   elseif isequal(char(header{9}),'495');
+      frontend=2;
+   elseif isequal(char(header{9}),'572');
+      frontend=3;
+   elseif isequal(char(header{9}),'549');
+      frontend=4;
+   elseif isequal(char(header{9}),'119');
+      frontend=5;
+   elseif isequal(char(header{9}),'SPL');
+      frontend=6;
+   end
+  
+
    source = strrep( char(header{7}),'ODD_H','Odd hydrogen');
    source = strrep( source,'ODD_N','Odd nitrogen');
    source = strrep( source, 'WATER', 'Water isotope');
@@ -200,6 +291,7 @@ for i=1:length(rs1);
    source = strrep( source,'STRAT','Stratospheric');
    source = strrep( source,'DYNAM','Transport');
    source = sprintf([source,' FM=%d'],header{8});
+   source = sprintf('%-*s',32,source);
    tcal=double(header{28});
    if tcal==0;
 	tcal=double(header{29});
@@ -212,19 +304,19 @@ for i=1:length(rs1);
                    'Orbit',double(header{5}),...
                    'LST',double(header{6}),...
                    'Source',source,...
-                   'Discipline',char('AERO'),...
-                   'Topic',char(header{7}),...
+                   'Discipline',1,...
+                   'Topic',1,...
                    'Spectrum',double(i),...
-                   'ObsMode',char('SSW'),...
-                   'Type',char('SPE'),...
-                   'Frontend',char(header{9}),...
-                   'Backend',char(header{10}),...
+                   'ObsMode',2,...
+                   'Type',8,...
+                   'Frontend',frontend,...
+                   'Backend',backend,...
                    'SkyBeamHit',double(header{11}),...
                    'RA2000',double(header{12}),...
                    'Dec2000',double(header{13}),...
                    'VSource',double(header{14}),...
-                   'Longitude',double(header{15}),...
-                   'Latitude',double(header{16}),...
+                   'Latitude',double(header{15}),...
+                   'Longitude',double(header{16}),...
                    'Altitude',double(header{17}),...
                    'Qtarget',header{18},...
                    'Qachieved',header{19},...
@@ -252,7 +344,8 @@ for i=1:length(rs1);
                    'Channels',double(header{41}),...
                    'Tb',typecast(header{42},'double'),...
                    'Tspill',0,...
-		   'CALSTW',double(header{43}));
+		   'CALSTW',double(header{43}),...
+		   'FreqMode',double(header{8}));
 
    spec_h.Qtarget=double(spec_h.Qtarget.getArray());
    spec_h.Qachieved=double(spec_h.Qachieved.getArray());
@@ -303,7 +396,35 @@ end
 %now decode the calibration spectra from database data
 Calibration_spec={};
 for i=1:length(rs2);
+  
    header={rs2{i,:}};
+
+   if isequal(char(header{10}),'AC1');
+      backend=1;
+   elseif isequal(char(header{10}),'AC2');
+      backend=2;
+   end
+  
+   if isequal(char(header{9}),'555');
+      frontend=1;
+   elseif isequal(char(header{9}),'495');
+      frontend=2;
+   elseif isequal(char(header{9}),'572');
+      frontend=3;
+   elseif isequal(char(header{9}),'549');
+      frontend=4;
+   elseif isequal(char(header{9}),'119');
+      frontend=5;
+   elseif isequal(char(header{9}),'SPL');
+      frontend=6;
+   end
+  
+   if isequal(char(header{41}),'CAL');
+      sigtype=3;
+   elseif isequal(char(header{41}),'SSB');
+      sigtype=9;
+   end
+ 
    source = strrep( char(header{7}),'ODD_H','Odd hydrogen');
    source = strrep( source,'ODD_N','Odd nitrogen');
    source = strrep( source, 'WATER', 'Water isotope');
@@ -311,6 +432,7 @@ for i=1:length(rs2);
    source = strrep( source,'STRAT','Stratospheric');
    source = strrep( source,'DYNAM','Transport');
    source = sprintf([source,' FM=%d'],header{8});
+   source = sprintf('%-*s',32,source);
    spec_h = struct('Version',double(header{1}),...
                    'Level',double(header{2}),...
                    'Quality',double(header{1}),...
@@ -319,19 +441,19 @@ for i=1:length(rs2);
                    'Orbit',double(header{5}),...
                    'LST',double(header{6}),...
                    'Source',char(source),...
-                   'Discipline',char('AERO'),...
-                   'Topic',char(header{7}),...
+                   'Discipline',1,...
+                   'Topic',1,...
                    'Spectrum',double(i),...
-                   'ObsMode',char('SSW'),...
-                   'Type',char(header{41}),...
-                   'Frontend',char(header{9}),...
-                   'Backend',char(header{10}),...
+                   'ObsMode',2,...
+                   'Type',sigtype,...
+                   'Frontend',frontend,...
+                   'Backend',backend,...
                    'SkyBeamHit',double(header{11}),...
                    'RA2000',double(header{12}),...
                    'Dec2000',double(header{13}),...
                    'VSource',double(header{14}),...
-                   'Longitude',double(header{15}),...
-                   'Latitude',double(header{16}),...
+                   'Latitude',double(header{15}),...
+                   'Longitude',double(header{16}),...
                    'Altitude',double(header{17}),...
                    'Qtarget',header{18},...
                    'Qachieved',header{19},...
@@ -358,8 +480,9 @@ for i=1:length(rs2);
                    'EffTime',double(0),...
                    'Channels',double(header{39}),...
                    'Tb',typecast(header{40},'double'),...
-                   'Tspill',typecast(header{42},'double'),...
-                   'CALSTW',double(header{3}));
+                   'Tspill',double(header{42}),...
+                   'CALSTW',double(header{3}),...
+		   'FreqMode',double(header{8}));
 
    spec_h.Qtarget=double(spec_h.Qtarget.getArray());
    spec_h.Qachieved=double(spec_h.Qachieved.getArray());
@@ -509,8 +632,71 @@ end
 
 end
 %end of function planck
+%-----------------------------------------------------------------------------
+function [C]=convert_structure(spectra)
 
-       
+B.Version=[spectra(:).Version];
+B.Level=[spectra(:).Level];
+B.Quality=[spectra(:).Quality];
+B.STW=[spectra(:).STW];
+B.MJD=[spectra(:).MJD];
+B.Orbit=[spectra(:).Orbit];
+B.LST=[spectra(:).LST];
+B.Source=char(spectra(:).Source)';
+B.Discipline=[spectra(:).Discipline];
+B.Topic=[spectra(:).Topic];
+B.Spectrum=[spectra(:).Spectrum];
+B.ObsMode=[spectra(:).ObsMode];
+B.Type=[spectra(:).Type];
+B.Frontend=[spectra(:).Frontend];
+B.Backend=[spectra(:).Backend];
+B.SkyBeamHit=[spectra(:).SkyBeamHit];
+B.RA2000=[spectra(:).RA2000];
+B.Dec2000=[spectra(:).Dec2000];
+B.VSource=[spectra(:).VSource];
+B.Longitude=[spectra(:).Longitude];
+B.Latitude=[spectra(:).Latitude];
+B.Altitude=[spectra(:).Altitude];
+B.Qtarget=[spectra(:).Qtarget];
+B.Qachieved=[spectra(:).Qachieved];
+B.Qerror=[spectra(:).Qerror];
+B.GPSpos=[spectra(:).GPSpos];
+B.GPSvel=[spectra(:).GPSvel];
+B.SunPos=[spectra(:).SunPos];
+B.MoonPos=[spectra(:).MoonPos];
+B.SunZD=[spectra(:).SunZD];
+B.Vgeo=[spectra(:).Vgeo];
+B.Vlsr=[spectra(:).Vlsr];
+B.Tcal=[spectra(:).Tcal];
+B.Tsys=[spectra(:).Tsys];
+B.SBpath=[spectra(:).SBpath];
+B.LOFreq=[spectra(:).LOFreq];
+B.SkyFreq=[spectra(:).SkyFreq];
+B.RestFreq=[spectra(:).RestFreq];
+B.MaxSuppression=[spectra(:).MaxSuppression];
+B.AttitudeVersion=[spectra(:).SodaVersion];
+B.FreqRes=[spectra(:).FreqRes];
+B.FreqCal=[spectra(:).FreqCal];
+B.IntMode=[spectra(:).IntMode];
+B.IntTime=[spectra(:).IntTime];
+B.EffTime=[spectra(:).EffTime];
+B.Channels=[spectra(:).Channels];
+%B.pointer=[spectra(:).pointer];
+B.FreqMode=[spectra(:).FreqMode];
+B.TSpill=[spectra(:).Tspill];
+%B.Tb=[spectra(:).Tb];
+B.ScanID=[spectra(:).CALSTW];
+
+
+Tb={spectra(:).Tb};
+
+C.spec_h=B;
+C.y=Tb;
+
+end
+%end of function convert_structure
+%-----------------------------------------------------------------------------
+
 
 
 
