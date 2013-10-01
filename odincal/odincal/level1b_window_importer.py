@@ -296,6 +296,9 @@ class Level1b_cal():
             for i in range(nc-1,-1,-1):
                 if (mc[i] < Tmin or mc[i] > Tmax or 
                     abs((mc[i]-tsys)/tsys) > 0.02):
+                    #del cal[i]
+		    pass
+		if (mc[i] < Tmin or mc[i] > Tmax):
                     del cal[i]
 
         del mc
@@ -916,19 +919,19 @@ def level1b_importer():
         
 
     if backend=='AC1':
-        query=con.query('''select start from ac_level0 
+        query=con.query('''select start,ssb_att from ac_level0 
                     natural join getscansac1({0},{1}) 
                     join shk_level1 using(stw,backend)
                     where start>={0} and start<={1}
-                    and backend='AC1' group by start 
+                    and backend='AC1' group by start,ssb_att 
                     order by start'''.format(*temp))
 
     if backend=='AC2':
-        query=con.query('''select start from ac_level0 
+        query=con.query('''select start,ssb_att from ac_level0 
                     natural join getscansac2({0},{1})
                     join shk_level1 using(stw,backend)
                     where start>={0} and start<={1}
-                    and backend='AC2' group by start 
+                    and backend='AC2' group by start,ssb_att 
                     order by start'''.format(*temp))
     result2=query.dictresult()
     if result2==[]:
@@ -1015,8 +1018,8 @@ def level1b_importer():
         for scanfrontend in scanfrontends:
             print scanfrontend
             result3=copy.deepcopy(result)
-            level1b_window_importer(result3,row['start'],scanfrontend,
-                                        tdiff,con,soda,version)
+            level1b_window_importer(result3,row['start'],row['ssb_att'],
+                                   scanfrontend,tdiff,con,soda,version)
         success_scans=success_scans+1
 
     info={'info':'',
@@ -1027,7 +1030,7 @@ def level1b_importer():
     #logger.info('processing of file {0} done'.format(acfile))
     con.close()
 
-def level1b_window_importer(result,calstw,scanfrontend,tdiff,con,soda,version):
+def level1b_window_importer(result,calstw,ssb_att,scanfrontend,tdiff,con,soda,version):
     print datetime.datetime.now()  
     #extract data from the "result" and perform a calibration
     listofspec=[]
@@ -1045,6 +1048,9 @@ def level1b_window_importer(result,calstw,scanfrontend,tdiff,con,soda,version):
             pass
         else:
             continue
+	if row['ssb_att']!=ssb_att:
+            continue
+
 
         if startspec==0:
             #do not use any calibration signals from first scan
