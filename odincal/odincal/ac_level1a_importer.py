@@ -4,15 +4,22 @@ from math import erfc, erf, pi, sqrt, exp,cos
 from pg import DB
 import ctypes 
 from pkg_resources import resource_filename
-import matplotlib.pyplot as pyplt
+#import matplotlib.pyplot as pyplt
 import psycopg2
+from psycopg2 import InternalError,IntegrityError
 from StringIO import StringIO
+from odincal.config import config
+from datetime import datetime
 
 
 class db(DB):
     def __init__(self):
-        #DB.__init__(self,dbname='odin_test')
-	DB.__init__(self,dbname='odin',user='odinop',host='localhost',passwd='0d!n-cth')
+        DB.__init__(self,dbname=config.get('database','dbname'),
+                         user=config.get('database','user'),
+                         host=config.get('database','host'),
+                         passwd=config.get('database','passwd'),
+                         )
+
 
 class Level1a:
     """A class to process level 0 files into level 1a."""
@@ -179,31 +186,38 @@ def ac_level1a_importer(stwa,stwb,backend):
         a=numpy.zeros(shape=(8*112,))
         for ind,band in enumerate(band_start):
             a[band*112:(band+len(chips[ind]))*112]=ac.got[ind]
-        data=con.escape_bytea(abs(a).tostring())
-	line=(
-              str(rowb['stw'])        +':'+
-              str(rowb['backend'])    +':'+"\\"+
-              data                   +'\n')
-       	lines.append(line)
-		
-
-        #con.insert('ac_level1a',temp)
- 
+	fgr.write(
+              str(rowb['stw'])                          +'\t'+
+              str(rowb['backend'])                      +'\t'+
+              '\\\\x' + abs(a).tostring().encode('hex') +'\t'+               
+              str(datetime.now())                       +'\n')
 	
-    conn = psycopg2.connect("dbname=odin user=odinop host=localhost password=0d!n-cth")
-    #conn = psycopg2.connect("dbname=odin_test")
+    conn = psycopg2.connect(config.get('database','pgstring'))
     cur = conn.cursor()
-    fgr=StringIO()
-    fgr.writelines(lines)
     fgr.seek(0)
-    cur.execute("create temp table foo(stw bigint, backend backend, spectra bytea );")
-    cur.copy_from(file=fgr,table='foo', sep=':')
+    cur.execute("create temporary table foo ( like ac_level1a );")
+    cur.copy_from(file=fgr,table='foo')
+    try:
+        cur.execute("delete from ac_level1a ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
+        cur.execute("insert into ac_level1a (select * from foo)")
+    except (IntegrityError,InternalError) as e:
+       	print e
+        try:
+        	conn.rollback()
+                cur.execute("create temporary table foo ( like ac_level1a );")
+                cur.copy_from(file=fgr,table='foo')
+                cur.execute("delete from ac_level1a ac using foo f where f.stw=ac.stw and ac.backend=f.backend")
+                cur.execute("insert into ac_level1a (select * from foo)")
+        except (IntegrityError,InternalError) as e1:
+                print e1
+                conn.rollback()
+		conn.close()
+		con.close()
+                return 1
     fgr.close()
-    cur.execute("insert into ac_level1a select * from foo as f where not exists (select * from ac_level1a where f.stw=ac_level1a.stw);")
     conn.commit()
     conn.close()
-
     con.close()
-
+    return 0
 
 

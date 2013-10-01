@@ -25,7 +25,7 @@ setup(
             "level0data2db = odincal.level0:level0data2db",
             "level1data2db = odincal.calibration_preprocess:main",
             "level1b_importer = odincal.level1b_importer:level1b_importer",
-            "level1b_window_importer = odincal.level1b_window_importer:level1b_importer",
+            "level1b_window_importer = odincal.level1b_window_importer2:level1b_importer",
             "level1b_exporter = odincal.level1b_exporter:level1b_exporter",
             "odinlogserver = odincal.logserver:main",
 	    "process_level0_or_calibrate = odincal.process_level0_or_calibrate:main",
