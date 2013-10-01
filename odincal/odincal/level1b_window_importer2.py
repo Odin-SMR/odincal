@@ -323,5 +323,3 @@ def level1b_window_importer():
           'version': version}
     report_result(con,acfile,info)
     con.close()
-
-level1b_window_importer()
