@@ -62,13 +62,40 @@ def get_full_path(filename):
 def main():
     
     PROCESS_NUM_LEVEL0=400
-    PROCESS_CHUNKSIZE_LEVEL0=40
-    PROCESS_NUM_LEVEL1B=400
+    PROCESS_CHUNKSIZE_LEVEL0=240
+    PROCESS_NUM_LEVEL1B=600
     PROCESS_CHUNKSIZE_LEVEL1B=1
-    PROCESS_QUEUE=400
+    PROCESS_QUEUE=600
 
     con=db()
-    
+
+    #remove jobs from tables level0_files_in_process
+    #and in_process that has been there for a few days,
+    today=datetime.today()
+    remove_date=today+timedelta(days=-4)
+    query=con.query('''
+           select file from level0_files_in_process
+           where created<'{0}' 
+           '''.format(*[remove_date]))
+    result=query.dictresult()
+    for row in result:
+        con.query('''
+          delete from level0_files_in_process where file='{0}'
+          '''.format(*[row['file']]))
+
+    query=con.query('''
+           select file from in_process
+           where created<'{0}' 
+           '''.format(*[remove_date]))
+    result=query.dictresult()
+    for row in result:
+        con.query('''
+          delete from in_process where file='{0}'
+          '''.format(*[row['file']]))
+
+
+    #prepare to launch new jobs    
+
     if launcher=='not shell':
         tc = ShellLauncher()
     else:
@@ -189,7 +216,7 @@ def main():
                            Variable_List='PGHOST=malachite',
 			   Resource_List=[
                                ('nodes','1:odincal'),
-                               ('walltime','7200'),
+                               ('walltime','14400'),
 			       ('mem','1400mb'),
 			   ],
                            Error_Path=Error_Path,
@@ -312,8 +339,8 @@ def main():
                                       Variable_List='PGHOST=malachite',
 			              Resource_List=[
                                           ('nodes','1:odincal'),
-                                          ('walltime','7200'),
-					  ('mem','990mb')
+                                          ('walltime','10800'),
+					  ('mem','1400mb')
 			              ],
                                       Error_Path=Error_Path,
                                       Output_Path=Output_Path,
