@@ -1301,8 +1301,4 @@ def level1b_window_importer(result,calstw,ssb_att,scanfrontend,tdiff,con,soda,ve
                         con.insert('ac_cal_level1b',temp)
                    
     
-                        
-
-
-
 
