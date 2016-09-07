@@ -81,3 +81,4 @@ def main():
     logger.info('all jobs done.  normal exit')
 
 if __name__=='__main__':
+    main()

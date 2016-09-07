@@ -100,9 +100,20 @@ class Level1b_cal():
                         msq = numpy.add.reduce((d-mean)**2)/float(n-1)
                         sigma[band] = msq
                     msq = min(numpy.take(sigma,numpy.nonzero(sigma))[0])
-                    teff = (s.tsys*s.tsys/msq)/s.freqres
+		    if s.backend=='AC1':
+                        #do not use data from ssb module 1
+		    	msq = min(numpy.take(sigma[2:],numpy.nonzero(sigma[2:]))[0])
+		    if 1:
+		    	teff = numpy.zeros(shape=(8,))
+			teff[sigma!=0] = (s.tsys**2/sigma[sigma!=0])/s.freqres
+			if s.backend=='AC1':
+				teff[0]=0
+				teff[1]=0
+		    else:
+                    	teff = (s.tsys*s.tsys/msq)/s.freqres
                     eff.append(teff/s.inttime)
         # Tspill is the median contribution from the baffle
+	#print eff
         n = len(Tspill)
         if n:
             Tspill = numpy.sort(Tspill)[n/2]
@@ -115,10 +126,11 @@ class Level1b_cal():
         eff = numpy.array(eff)
         n = len(eff)
         if n:
-            eff = numpy.add.reduce(eff)/n
+            #eff = numpy.add.reduce(eff)/n
+	    eff=numpy.max(numpy.mean(eff,0))
         else:
             eff = 1.0
-
+	print 'eff '+str(eff)
         eta = 1.0-Tspill/300.0
         for s in calibrated:
             # set version number of calibration routine
@@ -126,9 +138,8 @@ class Level1b_cal():
             if s.type == 'SPE' and s.ref!=1:
                 s.data = numpy.choose(numpy.equal(s.data,0.0), 
                                       ((s.data-Tspill)/eta, 0.0))
-                s.efftime = s.inttime*eff
+                s.efftime = s.inttime*eff*eta**2
         print 'Tspill '+str(Tspill) 
-       
         return calibrated,VERSION,Tspill
    
     

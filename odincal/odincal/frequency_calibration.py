@@ -172,15 +172,16 @@ class Spectra:
             #       (s.backend, s.frontend, LO/1.0e6),
             # print " %d, %s" % (self.freqmode, self.topic)
         else:
-            odin.Warn("unknown configuration %s:%s:%10.1f" % \
-                      (s.backend, s.frontend, LO/1.0e6))
-
+	    pass
+            #odin.Warn("unknown configuration %s:%s:%10.1f" % \
+            #          (s.backend, s.frontend, LO/1.0e6))
+		
         if self.freqmode:
             self.source = "%s FM=%d" % (modes[self.topic], self.freqmode)
         else:
             self.source ="unknown"
-            self.topic = "N/A"
-        
+            self.topic  ="N/A"
+            self.split  =0
        
 
 
