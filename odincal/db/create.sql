@@ -1,30 +1,3 @@
-drop type backend cascade;
-drop type signal_type cascade;
-drop type frontend cascade;
-drop type mech cascade;
-drop type scan cascade;
-drop type shk_type cascade;
-drop type sourcemode cascade;
-drop type spectype cascade;
-
-
-drop table ac_level0 cascade;
-drop table ac_level1a cascade;
-drop table ac_level1b cascade;
-drop table ac_cal_level1b cascade;
-drop table fba_level0;
-drop table attitude_level0 cascade;
-drop table attitude_level1 cascade;
-drop table shk_level0 cascade;
-drop table shk_level1 cascade;
-drop table in_process cascade;
-drop table processed cascade;
-drop table level0_files cascade;
-drop table level0_files_imported cascade;
-drop table level0_files_in_process cascade;
-drop table ac_cal_level1c cascade;
-drop table ac_level1b_average cascade;
-
 
 create type backend as enum ('AC1','AC2');
 create type signal_type as enum ('REF','SIG');
