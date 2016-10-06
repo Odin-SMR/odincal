@@ -1,0 +1,15 @@
+postgres:
+  build: odincal/db
+  ports:
+    - 5432:5432
+  environment:
+    - POSTGRES_PASSWORD=secret
+    - POSTGRES_USER=odinop
+    - POSTGRES_DB=odin
+
+odincal:
+  build: .
+  links: 
+   - postgres
+  volumes:
+   - ./data/level0:/odindata/odin/level0
