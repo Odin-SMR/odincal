@@ -198,17 +198,8 @@ def report_result(con, acfile, info):
     con.insert('processed', processtemp)
 
 
-def level1b_importer():
+def level1b_importer(acfile, backend, level0_process, version):
     '''perform an intensity and frequency calibration'''
-    # acfile='100b8721.ac1'
-    # backend='AC1'
-    # level0_process=1
-    # version=10
-    # ../../bin/odinpy level1b_window_importer2.py 100b8721.ac1 AC1 1 10
-    acfile = argv[1]
-    backend = argv[2]
-    level0_process = int(argv[3])
-    version = int(argv[4])
 
     logging.basicConfig()
     logger = logging.getLogger('level1b process')
@@ -333,4 +324,20 @@ def level1b_importer():
             'version': version}
     report_result(con, acfile, info)
     con.close()
-level1b_importer()
+
+
+def main():
+    # acfile='100b8721.ac1'
+    # backend='AC1'
+    # level0_process=1
+    # version=10
+    # ../../bin/odinpy level1b_window_importer2.py 100b8721.ac1 AC1 1 10
+    acfile = argv[1]
+    backend = argv[2]
+    level0_process = int(argv[3])
+    version = int(argv[4])
+    level1b_importer(acfile, backend, level0_process, version)
+
+
+if __name__ == "__main__":
+    main()

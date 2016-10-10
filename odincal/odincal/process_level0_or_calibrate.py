@@ -1,24 +1,23 @@
+""" imports or calibrates files """
 # pylint: skip-file
-from pg import InternalError
+
 from datetime import datetime, timedelta
-from tempfile import NamedTemporaryFile
-from odincal.config import config
-from os.path import join
-from odincal.launcher import ShellLauncher
-from odincal.database import ConfiguredDatabase
+from os.path import join, basename
 from time import sleep
+from logging import getLogger
+from pg import InternalError  # pylint: disable=import-error
+from odincal.config import config
+from odincal.database import ConfiguredDatabase
+from odincal.level0 import import_file
+from odincal.level1b_window_importer2 import level1b_importer
 
-configuration = config.get('odincal', 'config')
-period_starts = eval(config.get(configuration, 'period_start'))
-period_ends = eval(config.get(configuration, 'period_end'))
-version = int(config.get(configuration, 'version'))
 
-launcher = 'not shell'
-Error_Path = '/tmp'
-Output_Path = '/tmp'
+MAX_LEVEL0 = 200
+MAX_LEVEL1 = 10
 
 
 def get_full_path(filename):
+    """ Calculate filenames"""
     dirname = '/odindata/odin/level0/'
     if filename.endswith('ac1'):
         filetype = 'ac1'
@@ -29,8 +28,8 @@ def get_full_path(filename):
     elif filename.endswith('fba'):
         filetype = 'fba'
     elif filename.endswith('att'):
-        if (eval('0x' + filename.replace('.att', '')) <
-                eval('0x' + '0ce8666f.att'.replace('.att', ''))):
+        if (int('0x' + filename.replace('.att', ''), base=16) <
+                int('0x' + '0ce8666f.att'.replace('.att', ''), base=16)):
             filetype = 'att_17'
         else:
             filetype = 'att'
@@ -42,26 +41,9 @@ def get_full_path(filename):
     return full_filename
 
 
-def main():
-    PROCESS_NUM_LEVEL0 = 400
-    PROCESS_CHUNKSIZE_LEVEL0 = 240
-    PROCESS_NUM_LEVEL1B = 600
-    PROCESS_CHUNKSIZE_LEVEL1B = 1
-    PROCESS_QUEUE = 600
-
-    MAX_RETRIES = 3
-    for wait_factor in range(MAX_RETRIES):
-        try:
-            con = ConfiguredDatabase()
-            break
-        except InternalError as msg:
-            print msg
-            sleep((wait_factor + 1) * 5)
-        if wait_factor == MAX_RETRIES - 1:
-            exit(1)
-
-    # remove jobs from tables level0_files_in_process
-    # and in_process that has been there for a few days,
+def clean_database(con):
+    """ remove jobs from tables level0_files_in_process
+     and in_process that has been there for a few days"""
     today = datetime.today()
     remove_date = today + timedelta(days=-4)
     query = con.query('''
@@ -84,11 +66,30 @@ def main():
           delete from in_process where file='{0}'
           '''.format(*[row['file']]))
 
+
+def main():  # pylint: disable=too-many-locals, too-many-branches
+    """ The main func """
+    max_retries = 3
+    for wait_factor in range(max_retries):
+        try:
+            con = ConfiguredDatabase()
+            break
+        except InternalError as msg:
+            print msg
+            sleep((wait_factor + 1) * 5)
+        if wait_factor == max_retries - 1:
+            exit(1)
+
+    clean_database(con)
+
     # prepare to launch new jobs
 
-    tc = ShellLauncher()
-
     # make a list of which periods we consider
+    configuration = config.get('odincal', 'config')
+    period_starts = eval(config.get(configuration, 'period_start'))
+    period_ends = eval(config.get(configuration, 'period_end'))
+    version = int(config.get(configuration, 'version'))
+
     periods = []
     for period_start, period_end in zip(period_starts, period_ends):
         if period_end == 'today':
@@ -112,27 +113,18 @@ def main():
     # perform level0 import for the period first
     # if all level0 import is done for a period
     # we can start to calibrate
-    no_available = PROCESS_QUEUE
-    print no_available
-    if no_available == 0:
-        exit(0)
-    if PROCESS_NUM_LEVEL0 > no_available:
-        PROCESS_NUM_LEVEL0 = no_available
-    if PROCESS_NUM_LEVEL1B > no_available:
-        PROCESS_NUM_LEVEL1B = no_available
-
     for period in periods:
         print period
         # for level0_period we consider to import level0 data
         level0_period = [
             str(period['start-1']), str(period['end+1']),
-            PROCESS_NUM_LEVEL0 * PROCESS_CHUNKSIZE_LEVEL0
+            MAX_LEVEL0
         ]
         # for ac_period we consider to calibrate data
         ac_period = [
             str(period['start']),
             str(period['end']),
-            PROCESS_NUM_LEVEL1B * PROCESS_CHUNKSIZE_LEVEL1B,
+            MAX_LEVEL1,
             version
         ]
         # check if we have any level0_files at all for this period
@@ -162,61 +154,8 @@ def main():
 
         if len(result) > 0:
             # do level0 import
-            job_list = map(None, *([iter(result)] * PROCESS_CHUNKSIZE_LEVEL0))
-            for grp in job_list:
-                jobfile = NamedTemporaryFile(delete=False, mode='w+r+x')
-                jobfile.write('''from pg import DB\n''')
-                jobfile.write('''from datetime import datetime \n''')
-                jobfile.write('''from os.path import basename \n''')
-                jobfile.write('''from odincal.config import config\n''')
-                jobfile.write('''from odincal.level0 import import_file\n''')
-                jobfile.write('''dbname=config.get('database','dbname')\n''')
-                jobfile.write('''user=config.get('database','user')\n''')
-                jobfile.write('''host=config.get('database','host')\n''')
-                jobfile.write('''passwd=config.get('database','passwd')\n''')
-                jobfile.write('''class db(DB):\n''')
-                jobfile.write('''   def __init__(self):\n''')
-                jobfile.write('''      DB.__init__(self,dbname=dbname,user=user,host=host,passwd=passwd)\n''')  # noqa
-                jobfile.write('''con=db()\n''')
-                jobfile.write('''filelist=[''')
-
-                for row in grp:
-                    if not (row is None):
-                        fullname = get_full_path(row['file'])
-                        temp = {
-                            'file': row['file'],
-                            'created': datetime.today()}
-                        print row['file'], row['measurement_date']
-                        con.insert('level0_files_in_process', temp)
-                        jobfile.write('\'{0}\''.format(fullname) + ',')
-                jobfile.write(''']\n''')
-                jobfile.write('''for file in filelist:\n''')
-                jobfile.write('''   print file\n''')
-                jobfile.write('''   import_file(file)\n''')
-                sqlstring = '''\'''delete from level0_files_in_process where file=\'{0}\' \'''.format(basename(file))'''  # noqa
-                jobfile.write('''   con.query({0})\n'''.format(sqlstring))
-                jobfile.write(
-                    '''   temp={\'file\':basename(file),\'created\': datetime.today()}\n''')  # noqa
-                jobfile.write(
-                    '''   con.insert(\'level0_files_imported\',temp)\n''')
-                jobfile.write('''con.close()''')
-
-                jobfile.flush()
-                jobid = tc.submit(
-                    jobfile.name,
-                    'odincal',
-                    Job_Name='level0_import',
-                    Variable_List='PGHOST=malachite',
-                    Resource_List=[
-                        ('nodes', '1:odincal'),
-                        ('walltime', '14400'),
-                        ('mem', '1400mb'),
-                    ],
-                    Error_Path=Error_Path,
-                    Output_Path=Output_Path,
-                )
-                jobfile.close()
-                print jobid
+            for row in result:
+                import_level0_group(row, con)
             con.close()
             exit(0)
         else:
@@ -250,7 +189,7 @@ def main():
              where measurement_date>='{0}' and
              measurement_date<='{1}' group by ext'''.format(*level0_period))
                 result = query.dictresult()
-                t0 = datetime(2100, 0o1, 0o1)
+                t0 = datetime(2100, 01, 01)
                 att_data = 0
                 shk_data = 0
                 fba_data = 0
@@ -292,63 +231,47 @@ def main():
 
             if len(result) > 0:
                 # do level1b_calibration import
-                job_list = map(
-                    None,
-                    *([iter(result)] * PROCESS_CHUNKSIZE_LEVEL1B)
-                )
-                for grp in job_list:
-                    jobfile = NamedTemporaryFile(delete=False, mode='w+r+x')
-                    jobfile.write('''from subprocess import call\n''')
-                    jobfile.write('''binfile=\'/usr/local/bin/level1b_window_importer\'\n''')  # noqa
-                    jobfile.write('''version={0}\n'''.format(version))
-                    jobfile.write('''filelist=[''')
-                    if PROCESS_CHUNKSIZE_LEVEL1B == 1:
-                        temp = {
-                            'file': grp['file'],
-                            'created': datetime.today(),
-                            'version': version,
-                        }
-                        con.insert('in_process', temp)
-                        jobfile.write('\'{0}\''.format(grp['file']) + ',')
-                        print grp['file']
-                    else:
-                        for row in grp:
-                            if row is not None:
-                                temp = {
-                                    'file':
-                                    row['file'],
-                                    'created': datetime.today(),
-                                    'version': version
-                                }
-                                con.insert('in_process', temp)
-                                jobfile.write(
-                                    '\'{0}\''.format(
-                                        row['file']) + ',')
-                                print row['file']
-                    jobfile.write(''']\n''')
-                    jobfile.write('''for file in filelist:\n''')
-                    jobfile.write(
-                        '''  call([binfile,file,file[-3::].upper(),'1',str(version)])\n''')  # noqa
-                    jobfile.flush()
-                    jobid = tc.submit(
-                        jobfile.name,
-                        'odincal',
-                        Job_Name='calibration_import',
-                        Variable_List='PGHOST=malachite',
-                        Resource_List=[
-                            ('nodes', '1:odincal'),
-                            ('walltime', '10800'),
-                            ('mem', '1400mb')
-                        ],
-                        Error_Path=Error_Path,
-                        Output_Path=Output_Path,
-                    )
-                    jobfile.close()
-                    print jobid
-                    # submit jobfile to queu
+                for grp in result:
+                    calibrate_level0(grp, con, version)
                 con.close()
                 exit(0)
     con.close()
+
+
+def calibrate_level0(grp, open_con, version):
+    """ run calibration """
+    temp = {
+        'file': grp['file'],
+        'created': datetime.today(),
+        'version': version,
+    }
+    open_con.insert('in_process', temp)
+    filename = grp['file']
+    suffix = filename[-3:].upper()
+    level1b_importer(
+        filename, suffix, 1, version)
+    # open_con.delete('in_process', filename)
+
+
+def import_level0_group(row, open_con):
+    """ run import """
+    filelist = []
+    logger = getLogger(__name__)
+    if row is not None:
+        fullname = get_full_path(row['file'])
+        temp = {
+            'file': row['file'],
+            'created': datetime.today()
+        }
+        logger.info(row['file'], row['measurement_date'])
+        open_con.insert('level0_files_in_process', temp)
+        filelist.append(fullname)
+
+    for filename in filelist:
+        import_file(filename)
+        open_con.delete('level0_files_in_process', file=basename(filename))
+        temp = {'file': basename(filename), 'created': datetime.today()}
+        open_con.insert('level0_files_imported', temp)
 
 
 if __name__ == '__main__':
