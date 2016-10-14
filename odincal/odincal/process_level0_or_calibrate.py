@@ -1,5 +1,4 @@
 """ imports or calibrates files """
-# pylint: skip-file
 
 from datetime import datetime, timedelta
 from os.path import join, basename
@@ -67,7 +66,7 @@ def clean_database(con):
           '''.format(*[row['file']]))
 
 
-def main():  # pylint: disable=too-many-locals, too-many-branches
+def main():  # noqa pylint: disable=too-many-locals, too-many-branches, too-many-statements
     """ The main func """
     max_retries = 3
     for wait_factor in range(max_retries):
@@ -86,8 +85,9 @@ def main():  # pylint: disable=too-many-locals, too-many-branches
 
     # make a list of which periods we consider
     configuration = config.get('odincal', 'config')
-    period_starts = eval(config.get(configuration, 'period_start'))
-    period_ends = eval(config.get(configuration, 'period_end'))
+    period_starts = eval(config.get(configuration, 'period_start'))  # noqa pylint: disable=eval-used
+    period_ends = eval(config.get(configuration, 'period_end'))  # noqa pylint: disable=eval-used
+
     version = int(config.get(configuration, 'version'))
 
     periods = []
@@ -189,16 +189,16 @@ def main():  # pylint: disable=too-many-locals, too-many-branches
              where measurement_date>='{0}' and
              measurement_date<='{1}' group by ext'''.format(*level0_period))
                 result = query.dictresult()
-                t0 = datetime(2100, 01, 01)
+                time0 = datetime(2100, 01, 01)
                 att_data = 0
                 shk_data = 0
                 fba_data = 0
                 for row in result:
                     if row['ext'] == 'ac1' or row['ext'] == 'ac2':
                         continue
-                    t1 = datetime.strptime(row['max'], '%Y-%m-%d')
-                    if t1 < t0:
-                        t0 = t1
+                    time1 = datetime.strptime(row['max'], '%Y-%m-%d')
+                    if time1 < time0:
+                        time0 = time1
                     if row['ext'] == 'att':
                         att_data = 1
                     if row['ext'] == 'shk':
@@ -208,8 +208,8 @@ def main():  # pylint: disable=too-many-locals, too-many-branches
                 if att_data == 1 and shk_data == 1 and fba_data == 1:
                     # the latest date we have attitude,shk,and fba data
                     # is t1, now subtract 2 days for safety reason
-                    t0 = t0 - timedelta(days=2)
-                    ac_period[1] = str(t0.date())
+                    time0 = time0 - timedelta(days=2)
+                    ac_period[1] = str(time0.date())
                 else:
                     # continue to next period
                     continue
@@ -231,8 +231,7 @@ def main():  # pylint: disable=too-many-locals, too-many-branches
 
             if len(result) > 0:
                 # do level1b_calibration import
-                for grp in result:
-                    calibrate_level0(grp, con, version)
+                calibrate_level0(result, con, version)
                 con.close()
                 exit(0)
     con.close()
@@ -240,17 +239,21 @@ def main():  # pylint: disable=too-many-locals, too-many-branches
 
 def calibrate_level0(grp, open_con, version):
     """ run calibration """
-    temp = {
-        'file': grp['file'],
-        'created': datetime.today(),
-        'version': version,
-    }
-    open_con.insert('in_process', temp)
-    filename = grp['file']
-    suffix = filename[-3:].upper()
-    level1b_importer(
-        filename, suffix, 1, version)
-    # open_con.delete('in_process', filename)
+    job_list = []
+    for row in grp:
+        temp = {
+            'file': row['file'],
+            'created': datetime.today(),
+            'version': version,
+        }
+        open_con.insert('in_process', temp)
+        job_list.append(temp)
+    for job in job_list:
+        filename = job['file']
+        suffix = filename[-3:].upper()
+        level1b_importer(
+            filename, suffix, 1, version)
+        # open_con.delete('in_process', filename)
 
 
 def import_level0_group(row, open_con):
