@@ -23,7 +23,7 @@ setup(
         'create_datamodel = db.admin_tools:create_datamodel',
         'download_level0 = util.tools:download_level0',
         "level0file2db = odincal.level0_file_importer:main",
-        "level0file_server = odincal.test_serv:main",
+        "level0file_server = odincal.level0_fileserver:main",
         "level0data2db = odincal.level0:level0data2db",
         "level1data2db = odincal.calibration_preprocess:main",
         "level1b_importer = odincal.level1b_importer:level1b_importer",
@@ -43,6 +43,7 @@ setup(
         'matplotlib',
         'PyGreSQL',
         'setuptools',
+        'mockito',
     ],
     # tests_require=['setuptools'],
 )

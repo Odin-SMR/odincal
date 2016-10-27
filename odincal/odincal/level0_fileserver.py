@@ -1,7 +1,11 @@
-""" A directory fileserver """
+""" A directory fileserver
+
+This module uses inotify to watch events on the filesystem. Files are synced
+with rsync from PDC and when they arrive at the filesystem they are imported to
+the database.
+
+"""
 from os.path import isdir
-from time import sleep
-import threading
 import Queue
 
 import logging
@@ -11,9 +15,11 @@ from pyinotify import (   # pylint: disable=no-name-in-module
 )
 from odincal.level0_file_importer import import_file
 
+logging.basicConfig(level=logging.DEBUG)
+
 
 class EventHandler(ProcessEvent):
-    """ Event handler """
+    """Event handler"""
     def __init__(self, queue):
         self.logger = logging.getLogger('filesystem list')
         self.logger.debug('started filesystem sensor')
@@ -21,7 +27,7 @@ class EventHandler(ProcessEvent):
         ProcessEvent.__init__(self)
 
     def process_IN_CREATE(self, event):  # pylint: disable=invalid-name
-        """ dick string """
+        """A file is created in ..."""
         if isdir(event.pathname):
             self.logger.info(
                 "Detected new directory: %s",
@@ -43,36 +49,39 @@ class EventHandler(ProcessEvent):
         self.queue.put(event.pathname)
 
 
-class Worker(threading.Thread):
-    """ A workder thread """
+class Importer(object):
+    """ Responsible for pulling the queue and run the import command
+    """
     def __init__(self, queue):
-        self.logger = logging.getLogger('worker process')
         self.queue = queue
-        threading.Thread.__init__(self)
-        self.logger.debug('started worker')
+        self.logger = logging.getLogger(__name__)
 
-    def run(self):
+    def import_to_database(self, newfile):
+        """ Run the specific command to import the file"""
+        self.logger.info('processing file %s', newfile)
+        import_file(newfile)
+
+    def import_files(self):
+        """ Import all files in the queue
+        """
         while 1:
             try:
                 newfile = self.queue.get()
-                self.logger.info('processing file %s', newfile)
-                import_file(newfile)
+                self.import_to_database(newfile)
                 self.queue.task_done()
             except Queue.Empty:
                 self.logger.info('Queue is empty')
                 break
-        self.logger.debug('Worker stopped')
+            except KeyboardInterrupt:
+                self.logger.warn('C-c pressed exiting')
+                break
 
 
 def main():
-    """set up fileserver"""
-    logging.basicConfig(level=logging.DEBUG)
-    logger = logging.getLogger('test_server')
+    """set up and run the fileserver"""
+    logger = logging.getLogger(__name__)
     logger.info('starting testserver')
     queue = Queue.Queue()
-    worker = Worker(queue)
-    worker.daemon = True
-    worker.start()
     manager = WatchManager()
     handler = EventHandler(queue)
     notifier = ThreadedNotifier(manager, handler)
@@ -84,23 +93,13 @@ def main():
         auto_add=True,
         quiet=False
     )
-    logger.info('watching %s', format(directory))
+    logger.info('watching %s', directory)
+
+    # Run the service
     notifier.start()
-    while 1:
-        try:
-            sleep(60)
-            logger.debug(
-                'mark - worker[%s] - notifier[%s]',
-                str(worker.is_alive()),
-                str(notifier.is_alive()),
-            )
-        except KeyboardInterrupt:
-            logger.warn('C-c pressed exiting')
-            break
-    logger.info('Waiting for worker to finish')
-    queue.join()
+    importer = Importer(queue)
+    importer.import_files()
     notifier.stop()
-    logger.info('all jobs done.  normal exit')
 
 if __name__ == '__main__':
     main()
