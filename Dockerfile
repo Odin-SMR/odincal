@@ -7,6 +7,7 @@ run apt-get install -y \
             libcfitsio-dev \
             libhdfeos-dev \
             python-pyinotify 
+run pip install sqlalchemy
 copy . /src
 run cd oops && python setup.py install
 run cd odincal && python setup.py install
