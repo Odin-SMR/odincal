@@ -1,6 +1,13 @@
-""" A connection to the database """
+"""Connections to the database"""
 from pg import DB  # pylint: disable=import-error
+from sqlalchemy.ext.declarative import declarative_base
 from odincal.config import config
+
+
+class OdincalDB(object):  # pylint: disable=too-few-public-methods
+    """Sqlalchemy settings"""
+    Base = declarative_base()
+    connect_string = config.get('database', 'connect_string')
 
 
 class ConfiguredDatabase(DB):  # pylint: disable=too-few-public-methods
