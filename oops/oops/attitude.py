@@ -7,7 +7,7 @@ import odin
 
 class AttitudeParser:
 
-    def __init__(self, files, stw0=0L, stw1=0x200000000L):
+    def __init__(self, files, stw0=0L, stw1=0x800000000L):
         self.files = files
         self.stw0 = stw0
         self.stw1 = stw1
