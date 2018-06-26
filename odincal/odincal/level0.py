@@ -299,8 +299,13 @@ def get_seq(mode):
     return seq, chips, band_start
 
 
+def stw_correction(datafile):
+    hex_part_of_filename = splitext(basename(datafile))[0]
+    file_stw = int(hex_part_of_filename, 16) << 4
+    return file_stw & 0xF00000000
+
+
 def import_file(datafile):
-    stw_overflow = basename(datafile).startswith('1')
     extension = splitext(datafile)[1]
     fgr = StringIO()
     logger = logging.getLogger('level0 process')
@@ -312,8 +317,7 @@ def import_file(datafile):
             try:
                 datadict = getAC(f)
                 discipline = getACdis(f2)
-                if stw_overflow:
-                    datadict['stw'] += 2**32
+                datadict['stw'] += stw_correction(datafile)
                 if (datadict['inttime'] != 9999 and discipline == 'AERO' and
                     datadict['frontend'] is not None and
                         datadict['sig_type'] != 'problem'):
@@ -360,8 +364,7 @@ def import_file(datafile):
         while True:
             try:
                 datadict = getFBA(f)
-                if stw_overflow:
-                    datadict['stw'] += 2**32
+                datadict['stw'] += stw_correction(datafile)
                 # create an import file to dump in data into db
                 fgr.write(
                     str(datadict['stw']) + '\t' +
@@ -430,8 +433,7 @@ def import_file(datafile):
         datadict = getSHK(hk)
         for data in datadict:
             for index, stw in enumerate(datadict[data][0]):
-                if stw_overflow:
-                    stw += 2**32
+                stw += stw_correction(datafile)
                 fgr.write(str(stw) + '\t' +
                           str(data) + '\t' +
                           str(float(datadict[data][1][index])) + '\t' +
