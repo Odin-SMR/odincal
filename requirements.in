@@ -1,0 +1,10 @@
+coverage
+numpy==1.11.0
+matplotlib
+mockito
+psycopg2
+PyGreSQL
+pyinotify
+pylint
+pytest
+SQLAlchemy
