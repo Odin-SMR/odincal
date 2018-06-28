@@ -6,6 +6,7 @@ dist/
 *.egg-info/
 parts/
 *.pyc
+*.pyo
 develop-eggs/
 *~
 *.aux
@@ -16,3 +17,11 @@ develop-eggs/
 include/
 local/
 lib/
+*.sw*
+.cache/
+.coverage
+.pytest_cache/
+.ropeproject/
+.tox/
+coverage.xml
+pytest.xml
