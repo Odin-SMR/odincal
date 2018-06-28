@@ -1,19 +1,22 @@
 from sys import argv
-from os.path import getsize,basename,splitext
-if len(argv)==2:
+from os.path import getsize, splitext
+
+
+def main():
     origfile = argv[1]
     size = getsize(origfile)
-    f = open(origfile,'rb')
-    g = open('testfile'+splitext(origfile)[1],'wb')
+    orig_fp = open(origfile, 'rb')
+    test_fp = open('testfile' + splitext(origfile)[1], 'wb')
 
     #find a block at the middle of the file
-    f.seek(size/150/2*150)
+    orig_fp.seek(size / 150 / 2 * 150)
     #read at least 3 whole data blocks
-    for i in range(4):
-        x =f.read(150*13)
-        g.write(x)
-    f.close()
-    g.close()
+    for _ in range(4):
+        chunk = orig_fp.read(150 * 13)
+        test_fp.write(chunk)
+    orig_fp.close()
+    test_fp.close()
 
 
-
+if __name__ == "__main__" and len(argv) == 2:
+    main()
