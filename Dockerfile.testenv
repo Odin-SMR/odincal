@@ -1,0 +1,13 @@
+FROM docker2.molflow.com/devops/odincal_base
+RUN apt-get update && apt-get install -y \
+    python \
+    python-dev \
+    python-tox \
+    python-pip \
+    python-numpy \
+    postgresql \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd jenkins --uid 1000 --shell /bin/bash --create-home
+USER jenkins
