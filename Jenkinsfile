@@ -27,7 +27,7 @@ pipeline {
                 sh """docker tag docker2.molflow.com/odin_redo/odincal:${env.BUILD_TAG} \\
                     docker2.molflow.com/odin_redo/odincal:latest
                 """
-                sh "docker push docker2.molflow.com/odin_redo/odincal"
+                sh "docker push docker2.molflow.com/odin_redo/odincal:latest"
             }
         }
     }
