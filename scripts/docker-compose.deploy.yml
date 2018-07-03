@@ -1,13 +1,11 @@
 version: '3.4'
-odincal:
+
+services:
+  odincal:
     image: docker2.molflow.com/odin_redo/odincal:latest
     extra_hosts:
-        - "postgres:129.16.69.112" # titan.rss.chalmers.se
+      - "postgres:129.16.69.112" # titan.rss.chalmers.se
     volumes:
-        - /odindata/odin/level0:/odindata/odin/level0
-        - /root/.odincal.secret:/root/.odincal.secret
-    restart_policy:
-        condition: unless-stopped
-        delay: 5s
-        max_attempts: 3
-        window: 120s
+      - /odindata/odin/level0:/odindata/odin/level0:ro
+      - /root/.odincal.secret:/root/.odincal.secret:ro
+    restart: unless-stopped
