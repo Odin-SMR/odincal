@@ -1,3 +1,5 @@
+@Library('molflow') _
+
 pipeline {
     agent any
 
@@ -33,32 +35,8 @@ pipeline {
     }
 
     post {
-        success {
-            sendmessage(PHID, "pass")
+        always {
+          setPhabricatorBuildStatus PHID
         }
-
-        failure {
-            sendmessage(PHID, "fail")
-        }
-    }
-}
-
-
-def sendmessage(phid, type) {
-    withCredentials([string(credentialsId: 'conduit-token', variable: 'APITOKEN')]) {
-        sh """curl https://phabricator.molflow.com/api/harbormaster.sendmessage \\
-            -d api.token=$APITOKEN \\
-            -d buildTargetPHID=$phid \\
-            -d type=$type
-        """
-        sh """curl https://phabricator.molflow.com/api/harbormaster.createartifact \\
-            -d api.token=$APITOKEN \\
-            -d buildTargetPHID=$phid \\
-            -d artifactKey=Jenkins \\
-            -d artifactType=uri \\
-            -d artifactData[name]='Jenkins build' \\
-            -d artifactData[uri]=$BUILD_URL \\
-            -d artifactData[ui.external]=true
-        """
     }
 }
