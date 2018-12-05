@@ -9,7 +9,7 @@ coverage==4.5.1
 cycler==0.10.0            # via matplotlib
 kiwisolver==1.0.1         # via matplotlib
 matplotlib==2.2.2
-numpy==1.11.0
+numpy==1.15.4
 psycopg2==2.7.5
 pygresql==5.0.4
 pyinotify==0.9.6
@@ -19,6 +19,3 @@ pytz==2018.4              # via matplotlib
 six==1.11.0               # via cycler, matplotlib, python-dateutil
 sqlalchemy==1.2.8
 subprocess32==3.5.2       # via matplotlib
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools                # via kiwisolver

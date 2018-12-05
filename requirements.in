@@ -1,5 +1,5 @@
 coverage
-numpy==1.11.0
+numpy==1.15.4
 matplotlib
 psycopg2
 PyGreSQL
