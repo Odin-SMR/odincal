@@ -9,5 +9,5 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd jenkins --uid 1000 --shell /bin/bash --create-home
+RUN useradd jenkins --uid 386 --shell /bin/bash --create-home
 USER jenkins

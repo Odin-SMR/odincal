@@ -1,460 +1,421 @@
-import numpy
+# pylint: disable=C0103,R0914
 import copy
+import numpy
 
-class Level1b_cal():
-    """A class that can perform intensity calibration of odin ac-data"""
-    def __init__(self,spectra,calstw,con):
-        self.spectra=spectra
-        self.calstw=calstw
-        self.con=con
-    def calibrate(self,version):
-        """Do intensity calibration for all receivers."""
-        VERSION = version
-        (sig,ref,cal) = self.sortspec(self.spectra)
-        
-        if len(sig) == 0:
-            return None,VERSION,None
-        if len(ref) == 0:
-            #odin.Warn("no reference spectra found") 
-            return None,VERSION,None
- 
-        if len(cal) > 0:
-            cal = self.cleancal(cal, ref)
-        else:
-            #odin.Warn("no calibration spectra found")
-            return None,VERSION,None
-        print 'skyfreq',ref[0].skyfreq/1e9
-        
-        C = self.medTsys(cal)
-        nref = len(ref)
-        (rstw,rmat,inttime,start) = self.matrix(ref)
-        calibrated = []
-        maxalt = 0.0
-        iscan = 0
-        nspec = 0
-        Tsys = copy.copy(sig[0])
-        Tsys.type = 'CAL'
-        Tsys.data = C.data
-        if self.calstw!=0:
-            Tsys.stw=self.calstw
-        calibrated.append(Tsys)
-        ssb = copy.copy(Tsys)
-        ssb.type = 'SSB'
-        ssb.data = self.ssbCurve(ssb)
-        calibrated.append(ssb)
-        for t in sig:
-            s = copy.copy(t)
-            stw = float(s.stw)
-            R = ref[0]
-	    R.data = self.interpolate(rstw, rmat, stw,0,0)
-            self.calibrate1(s,R.data,Tsys.data, 1.0)
-	    #calculate band average gain
-	    n=112
-	    bands=8
-	    s.gain=numpy.zeros(8)
-	    for band in range(bands):
-		i0 = band*n
-                i1 = i0+n
-		s.gain[band]=numpy.mean(R.data[i0:i1]/Tsys.data[i0:i1],0)
-   
-            T = numpy.take(Tsys.data,numpy.nonzero(Tsys.data)[0])
-            if T.shape[0] == 0:
-                return None,VERSION,None
-            s.tsys = numpy.add.reduce(T)/T.shape[0]
-            d = numpy.take(s.data, numpy.nonzero(s.data))
-            mean = numpy.add.reduce(d[0])/d[0].shape[0]
-            msq = numpy.sqrt(numpy.add.reduce((d[0]-mean)**2)/(d[0].shape[0]-1))
-            if s.altitude > maxalt:
-                maxalt = s.altitude
-            calibrated.append(s)
-        ########## determination of baffle contribution ##########
-        ### Tspill = zeros(8, Float)
-        Tspill = []
-        eff = []
-        baf=[]
-        bafstw=[]
-        bafaltitude=[]
-        for s in calibrated:
-            if s.type == 'SPE' and s.altitude > maxalt-10.0e3 and s.ref!=1:
-                baf.append(s.data)
-                bafstw.append(s.stw)
-                bafaltitude.append(s.altitude)
-                n = len(s.data)
-                med = numpy.sort(s.data[s.data.nonzero()])
-                Tspill.append(med[len(med)/2])
-                if s.backend == "AOS":
-                    d = s.data
-                    mean = numpy.add.reduce(d)/d.shape[0]
-                    msq = numpy.add.reduce((d-mean)**2)/(d.shape[0]-1)
-                    teff = (s.tsys*s.tsys/msq)/s.freqres
-                    eff.append(teff/s.inttime)
-                else:
-                    n = 112
-                    bands = 8
-                    sigma = numpy.zeros(shape=(bands,)) 
-                    for band in range(bands):
-                        i0 = band*n
-                        i1 = i0+n
-                        d = s.data[i0:i1]
-                        mean = numpy.add.reduce(d)/float(n)
-                        msq = numpy.add.reduce((d-mean)**2)/float(n-1)
-                        sigma[band] = msq
-                    msq = min(numpy.take(sigma,numpy.nonzero(sigma))[0])
-		    if s.backend=='AC1':
-                        #do not use data from ssb module 1
-		    	msq = min(numpy.take(sigma[2:],numpy.nonzero(sigma[2:]))[0])
-		    if 1:
-		    	teff = numpy.zeros(shape=(8,))
-			teff[sigma!=0] = (s.tsys**2/sigma[sigma!=0])/s.freqres
-			if s.backend=='AC1':
-				teff[0]=0
-				teff[1]=0
-		    else:
-                    	teff = (s.tsys*s.tsys/msq)/s.freqres
-                    eff.append(teff/s.inttime)
-        # Tspill is the median contribution from the baffle
-	#print eff
-        n = len(Tspill)
-        if n:
-            Tspill = numpy.sort(Tspill)[n/2]
-        else:
-            #odin.Warn("no spectra at high altitude")
-            Tspill = 9.0
-        # eff is the mean integration efficiency, in the sense that
-        # s.inttime*eff is an effective integration time related to
-        # the noise level of a spectrum via the radiometer formula
-        eff = numpy.array(eff)
-        n = len(eff)
-        if n:
-            #eff = numpy.add.reduce(eff)/n
-	    eff=numpy.max(numpy.mean(eff,0))
-        else:
-            eff = 1.0
-	print 'eff '+str(eff)
-        eta = 1.0-Tspill/300.0
-        for s in calibrated:
-            # set version number of calibration routine
-            #s.level = s.level | VERSION
-            if s.type == 'SPE' and s.ref!=1:
-                s.data = numpy.choose(numpy.equal(s.data,0.0), 
-                                      ((s.data-Tspill)/eta, 0.0))
-                s.efftime = s.inttime*eff*eta**2
-        print 'Tspill '+str(Tspill) 
-        return calibrated,VERSION,Tspill
-   
-    
-   
-    def cleancal(self, cal, ref):
-        if len(ref) == 0 or len(cal) == 0:
-            return
-        (rstw,rmat,inttime,start) = self.matrix(ref)
-        ns = rmat.shape[0]
-        R = copy.copy(cal[0])
-        (Tmin,Tmax) = self.acceptableTsys(R.frontend)
-        for k in range(len(cal)):
-            stw = float(cal[k].stw)
-            # find reference data by table lookup
-            R.data=self.interpolate(rstw, rmat, stw, inttime,start)
-            # calculate a Tsys spectrum from given C and R
-            cal[k].data=self.Tsys(cal[k],R)
-        # combine CAL spectra into matrix
-        (cstw,cmat,dummy,dummy) = self.matrix(cal)
-        nc = cmat.shape[0]
-        if cal[0].backend == 'AOS':
-            mc = numpy.add.reduce(cmat,1)/cmat.shape[1]
-        else:
-            n = 112
-            bands = len(cal[0].data)/n
-            rms = numpy.zeros(shape=(bands,))
-            for band in range(bands):
-                i0 = band*n
-                i1 = i0+n
-                mc = numpy.add.reduce(cmat[:,i0:i1],1)/float(n)
-                # print "mc =", mc, nc, len(nonzero(mc))
-                if len(numpy.nonzero(mc)[0]) < nc or nc < 2:
-                    rms[band] = 1.0e10
-                else:
-                    mc = mc - numpy.add.reduce(mc)/float(nc)
-                    rms[band] = numpy.sqrt(
-                        numpy.add.reduce(mc*mc)/(float(nc-1)))
-                print "rms of band",band," =",rms[band]
-            i = numpy.argsort(numpy.where(rms == 0.0, max(rms), rms))
-            i0 = i[0]*n
-            i1 = i0+n
-            mc =numpy.add.reduce(cmat,1)/cmat.shape[1]
-        # to start with, disgard any Tsys spectra which are clearly
-        # too high
-        mc0 = numpy.take(mc,numpy.nonzero(numpy.less(mc,Tmax)))[0]
-        mc0 = numpy.take(mc0,numpy.nonzero(numpy.greater(mc0,Tmin)))[0]
-        n1 = len(mc0)
-        if n1 == 0:
-            tsys = 0.0
-            cal = []
-        else:
-            tsys = numpy.sort(mc0)[n1/2]
-            print "mean Tsys", tsys
-            for i in range(nc-1,-1,-1):
-                if (mc[i] < Tmin or mc[i] > Tmax or 
-                    abs((mc[i]-tsys)/tsys) > 0.02):
-                    pass
-                    #del cal[i]
-                if (mc[i] < Tmin or mc[i] > Tmax):
-                    del cal[i]
 
-        del mc
-        n2 = len(cal)
-        return cal
+def calibrate(spectra, calstw, version):
+    """Do intensity calibration for all receivers"""
 
-    def matrix(self, spectra):
-        if len(spectra) == 0:
-            return None
+    (sigs, refs, cals) = sortspec(spectra)
 
-        rows = len(spectra)
-        cols = len(spectra[0].data)
+    if not sigs or not refs or not cals:
+        return None, version, None
 
-        stw = numpy.zeros(shape=(rows,))
-        start = numpy.zeros(shape=(rows,))
-        inttime=numpy.zeros(shape=(rows,))
-        mat = numpy.zeros(shape=(rows,cols))
-        
+    cals = cleancal(cals, refs)
 
-        for i in range(rows):
-            s = spectra[i]
-            if s.data.shape[0] == cols:
-                mat[i,:] = s.data
+    print 'skyfreq: {0} GHz'.format(refs[0].skyfreq / 1e9)
+    medtsys = get_medtsys(cals)
+    (rstw, rmat, _, _) = matrix(refs)
+    calibrated = []
+    tsys = copy.copy(sigs[0])
+    tsys.type = 'CAL'
+    tsys.data = medtsys.data
+    if calstw != 0:
+        tsys.stw = calstw
+    calibrated.append(tsys)
+    ssb = copy.copy(tsys)
+    ssb.type = 'SSB'
+    ssb.data = ssbcurve(ssb)
+    calibrated.append(ssb)
+
+    for sig_i in sigs:
+
+        sig = copy.copy(sig_i)
+        stw = float(sig.stw)
+        ref = refs[0]
+        ref.data = interpolate(rstw, rmat, stw)
+
+        calibrate_partial(sig, ref.data, tsys.data)
+
+        # calculate band average gain
+        n_channels = 112
+        bands = 8
+        sig.gain = numpy.zeros(8)
+        for band in range(bands):
+            i0 = band * n_channels
+            i1 = i0 + n_channels
+            sig.gain[band] = numpy.mean(
+                ref.data[i0:i1] / tsys.data[i0:i1], 0)
+
+        # calculate average tsys
+        tsys_data = numpy.take(
+            tsys.data, numpy.nonzero(tsys.data)[0])
+        if tsys_data.shape[0] == 0:
+            return None, version, None
+        sig.tsys = numpy.add.reduce(
+            tsys_data) / tsys_data.shape[0]
+
+        calibrated.append(sig)
+
+    (tspill, eff) = get_efficiencies(calibrated)
+    eta = 1.0 - tspill / 300.0
+    for spec in calibrated:
+        if spec.type == 'SPE' and spec.ref != 1:
+            spec.data = numpy.choose(
+                numpy.equal(spec.data, 0.0),
+                ((spec.data - tspill) / eta, 0.0)
+            )
+            spec.efftime = spec.inttime * eff * eta**2
+
+    return calibrated, version, tspill
+
+
+def get_efficiencies(calibrated_specs):
+    '''get contribution from the baffle and efficient integration time
+       from high altitude spectra'''
+
+    eff = []
+    tspill = []
+    maxalt = numpy.max([spec.altitude for spec in calibrated_specs])
+    for sig in calibrated_specs:
+        if (sig.type == 'SPE' and
+                sig.altitude > maxalt - 10.0e3 and sig.ref != 1):
+            tspill.append(numpy.median(sig.data[sig.data.nonzero()]))
+            if sig.backend == "AOS":
+                data = sig.data
+                mean = numpy.add.reduce(data) / data.shape[0]
+                msq = numpy.add.reduce(
+                    (data - mean)**2) / (data.shape[0] - 1)
+                teff = (sig.tsys * sig.tsys / msq) / sig.freqres
+                eff.append(teff / sig.inttime)
             else:
-                pass
-            stw[i] = s.stw
-            inttime[i] = s.inttime
-            start[i]=s.start
+                n_channels = 112
+                bands = 8
+                sigma = numpy.zeros(shape=(bands,))
+                for band in range(bands):
+                    i0 = band * n_channels
+                    i1 = i0 + n_channels
+                    data = sig.data[i0:i1]
+                    mean = numpy.add.reduce(data) / float(n_channels)
+                    msq = numpy.add.reduce(
+                        (data - mean)**2) / float(n_channels - 1)
+                    sigma[band] = msq
+                msq = min(numpy.take(sigma, numpy.nonzero(sigma))[0])
+                if sig.backend == 'AC1':
+                    # do not use data from ssb module 1
+                    msq = min(
+                        numpy.take(sigma[2:], numpy.nonzero(sigma[2:]))[0])
+                teff = numpy.zeros(shape=(8,))
+                teff[sigma != 0] = (
+                    sig.tsys**2 / sigma[sigma != 0]) / sig.freqres
+                if sig.backend == 'AC1':
+                    teff[0] = 0
+                    teff[1] = 0
+                eff.append(teff / sig.inttime)
 
-        return (stw,mat,inttime,start)
+    # Tspill is the median contribution from the baffle
+    if tspill:
+        tspill = numpy.median(tspill)
+    else:
+        tspill = 9.0
 
-
-    def ssbCurve(self, s):
-        dB = {'495': -26.7, '549': -27.7, '555': -32.3, '572': -28.7 }
-        if s.frontend in ['495', '549', '555', '572']:
-            maxdB = dB[s.frontend]
-        else:
-            return numpy.ones(shape=len(s.data,))
-        
-        fIF = 3900e6
-        if s.skyfreq > s.lofreq:
-            fim = s.lofreq - fIF
-        else:
-            fim = s.lofreq + fIF
-        c = 2.9979e8
-        d0 = c/fIF/4.0
-        l = c/fim
-        n = numpy.floor(d0/l)
-        dx = (n+0.5)*l-d0
-  
-        x0 = d0+dx
-        if s.skyfreq > s.lofreq:
-            f = self.frequency(s)-2.0*fIF/1.0e9
-        else:
-            f = self.frequency(s)+2.0*fIF/1.0e9
-            fim = s.lofreq + fIF
-        l = c/f/1.0e9
-        p = 2.0*numpy.pi*x0/l
-        Y = 0.5*(1.0+numpy.cos(p))
-        S = 10.0**(maxdB/10.0)
-        Z = S + (1.0-S)*Y
-        Z = 1.0-Z
-        # for i in range(10):
-        #     print "%15.6e %15.6e %10.5f" % (f[i], l[i], Z[i])
-        return Z
-
-    def frequency(self,s):
-       df = 1.0e6
-       n=896
-       f=numpy.zeros(shape=(n,))
-       split=0
-       upper=0
-       if split:
-           if upper:
-               for j in range(0,n/4):
-                   f[j+0*n/4] = s.LO[2]*1e6 - (n/4-1-j)*df;
-                   f[j+1*n/4] = s.LO[2]*1e6 + j*df;                      
-                   f[j+2*n/4] = s.LO[3]*1e6 - (n/4-1-j)*df
-                   f[j+3*n/4] = s.LO[3]*1e6 + j*df;
-           else:
-               for j in range(0,n/4):
-                   f[j+0*n/4] = s.LO[0]*1e6 - (n/4-1-j)*df
-                   f[j+1*n/4] = s.LO[0]*1e6 + j*df
-                   f[j+2*n/4] = s.LO[1]*1e6 - (n/4-1-j)*df
-                   f[j+3*n/4] = s.LO[1]*1e6 + j*df 
-       else:
-           for j in range(n/8):
-               f[j+0*n/8] = s.LO[0]*1e6 - (n/8-1-j)*df
-               f[j+1*n/8] = s.LO[0]*1e6 + j*df
+    # eff is the mean integration efficiency, in the sense that
+    # s.inttime*eff is an effective integration time related to
+    # the noise level of a spectrum via the radiometer formula
+    eff = numpy.array(eff)
+    if eff.size > 0:
+        eff = numpy.max(numpy.mean(eff, 0))
+    else:
+        eff = 1.0
+    print 'Tspill: ' + str(tspill)
+    print 'eff: ' + str(eff)
+    return (tspill, eff)
 
 
-               f[j+2*n/8] = s.LO[1]*1e6 - (n/8-1-j)*df
-               f[j+3*n/8] = s.LO[1]*1e6 + j*df
-  
-               f[j+4*n/8] = s.LO[2]*1e6 - (n/8-1-j)*df
-               f[j+5*n/8] = s.LO[2]*1e6 + j*df
-               
-               f[j+4*n/8] = s.LO[2]*1e6 + j*df
-               f[j+5*n/8] = s.LO[2]*1e6 - (n/8-1-j)*df
+def cleancal(cal, ref):
 
-               f[j+6*n/8] = s.LO[3]*1e6 - (n/8-1-j)*df
-               f[j+7*n/8] = s.LO[3]*1e6 + j*df
-                
-       seq=[1,1,1,-1,1,1,1,-1,1,-1,1,1,1,-1,1,1] 
-       m=0
-       for adc in range(8):
-           if seq[2*adc]:
-               k = seq[2*adc]*112
-               df = 1.0e6/seq[2*adc]
-               if seq[2*adc+1] < 0:
-                   df=-df
-               for j in range(k): 
-                   f[m+j] = s.LO[adc/2]*1e6 +j*df;
-               m += k;
-       fdata=numpy.zeros(shape=(n,))
-       if s.skyfreq >= s.lofreq:            
-            for i in range(n):               
-                v = f[i]
-                v = s.lofreq + v
-                v /= 1.0e9
-                fdata[i] = v
-       else: 
-           for i in range(n):
-               v = f[i]
-               v = s.lofreq - v
-               v /= 1.0e9
-               fdata[i]=v
-       return fdata
-        
-    def interpolate(self, mstw, m, stw, dummy1,dummy2):
-        rows = m.shape[0]
-        if rows != len(mstw):
-            raise IndexError
-        i = numpy.searchsorted(mstw, stw)
-        if i == 0:
-            return m[0]
-        elif i == rows:
-            return m[rows-1]
-        else:
-            dt0 = float(mstw[i]-stw)
-            dt1 = float(stw-mstw[i-1])
-            dt =  float(mstw[i]-mstw[i-1])
-            return (dt0*m[i-1] + dt1*m[i])/dt
-
-
-    def medTsys(self, cal):
-        C = cal[0]
-        (Tmin,Tmax) = self.acceptableTsys(C.frontend)
-
-        (cstw,cmat,dummy,dummy) = self.matrix(cal)
-        if C.backend == 'AOS':
-            C.data = numpy.add.reduce(cmat)/float(cmat.shape[0])
-        else:
-            n = 112
-            bands = len(C.data)/n
-            C.data=numpy.zeros(shape=(len(C.data,)))
-            for band in range(bands):
-                c = numpy.zeros(shape=(n,))
-                i0 = band*n
-                i1 = i0+n
-                k = 0
-                for i in range(cmat.shape[0]):
-                    d = cmat[i,i0:i1]
-                    if len(numpy.nonzero(d)[0]) == 112:
-                        tsys = numpy.add.reduce(d)/112.0
-                        if tsys > Tmin and tsys < Tmax:
-                            c = c+d
-                            k = k+1
-                if k > 0:
-                    c = c/float(k)
-                C.data[i0:i1] = c
-        return C
-
-    def acceptableTsys(self, rx):
-        if rx == '119':
-            Tmin =  400.0
-            Tmax =  1500.0
-        else:
-            Tmin = 2000.0
-            Tmax = 7000.0
-        return (Tmin, Tmax)
-
-    def Tsys(self,cal,ref):
-        data=numpy.zeros(shape=(len(cal.data),))
-        epsr=1.0
-        etaMT=1.0
-        etaMS=1.0
-        Tspill=290.0
-        f = cal.skyfreq
-        Tbg = planck(2.7, f)
-        Thot = planck(cal.tcal, f)
-        if Thot == 0.0:
-            Thot = 275.0
-        dT = epsr*etaMT*Thot - etaMS*Tbg + (etaMS-etaMT)*Tspill;
-        for i in range(0,len(cal.data)):
-            if ref.data[i] > 0.0:
-                if cal.data[i] > ref.data[i]:
-                    data[i] = (ref.data[i]/
-                                      (cal.data[i]-ref.data[i]))
-                    data[i] *= dT
-                else: 
-                    data[i] = 0.0;
-            else: 
-                data[i] = 0.0;
-       
-
-        return data
-
-    def calibrate1(self,sig,ref,cal,eta):
-        etaML = [0.976, 0.968, 0.978, 0.975, 0.954 ]
-        etaMS  = 1.0
-        Tspill = 290.0
-        if eta == 0.0:
-            #rx = sig.frontend - 1;
-            rx=0
-            if (rx < 0 or rx > 4):
-                #ODINwarning("invalid receiver");
-                return;
-            eta = etaML[rx];
-        f = sig.skyfreq
-        Tbg = planck(2.7, f);
-        spill = etaMS*Tbg - (etaMS-eta)*Tspill;
-       	ok_ind=numpy.nonzero(ref>0.0)[0]
-        data=numpy.zeros(shape=len(sig.data),)
-	data[ok_ind]=((sig.data[ok_ind]-ref[ok_ind])/ref[ok_ind]*cal[ok_ind]+spill)/eta
-	sig.data=data
-        sig.type = 'SPE'
-
-    def sortspec(self, spectra):
-        sig = []
-        ref = []
+    (rstw, rmat, _, _) = matrix(ref)
+    spec = copy.copy(cal[0])
+    (tmin, tmax) = acceptable_tsys(spec.frontend)
+    for k, _ in enumerate(cal):
+        stw = float(cal[k].stw)
+        # find reference data by table lookup
+        spec.data = interpolate(rstw, rmat, stw)
+        # calculate a Tsys spectrum from given C and R
+        cal[k].data = get_tsys(cal[k], spec)
+    # combine CAL spectra into matrix
+    (_, cmat, _, _) = matrix(cal)
+    nc = cmat.shape[0]
+    if cal[0].backend == 'AOS':
+        mc = numpy.add.reduce(cmat, 1)/cmat.shape[1]
+    else:
+        n = 112
+        bands = len(cal[0].data) / n
+        rms = numpy.zeros(shape=(bands,))
+        for band in range(bands):
+            i0 = band * n
+            i1 = i0 + n
+            mc = numpy.add.reduce(cmat[:, i0:i1], 1) / float(n)
+            if len(numpy.nonzero(mc)[0]) < nc or nc < 2:
+                rms[band] = 1.0e10
+            else:
+                mc = mc - numpy.add.reduce(mc) / float(nc)
+                rms[band] = numpy.sqrt(
+                    numpy.add.reduce(mc * mc)/(float(nc - 1)))
+            print "rms of band", band, " =", rms[band]
+        i = numpy.argsort(numpy.where(rms == 0.0, max(rms), rms))
+        i0 = i[0] * n
+        i1 = i0 + n
+        mc = numpy.add.reduce(cmat, 1) / cmat.shape[1]
+    # to start with, disgard any Tsys spectra which are clearly
+    # too high
+    mc0 = numpy.take(mc, numpy.nonzero(numpy.less(mc, tmax)))[0]
+    mc0 = numpy.take(mc0, numpy.nonzero(numpy.greater(mc0, tmin)))[0]
+    n1 = len(mc0)
+    if n1 == 0:
+        tsys = 0.0
         cal = []
-        for s in spectra:
-            if s.type == 'SIG':
-                sig.append(s)
-            elif s.type == 'SK1' or s.type == 'SK2' or s.type == 'REF':
-                ref.append(s)
-            elif s.type == 'CAL':
-                cal.append(s)
+    else:
+        tsys = numpy.sort(mc0)[n1 / 2]
+        print "mean Tsys", tsys
+        for i in range(nc - 1, -1, -1):
+            if (mc[i] < tmin or mc[i] > tmax or
+                    abs((mc[i] - tsys) / tsys) > 0.02):
+                pass
+            if (mc[i] < tmin or mc[i] > tmax):
+                del cal[i]
 
-        return (sig, ref, cal)
+    del mc
+    return cal
 
-     
 
-   
-def planck(T,f):
-    h = 6.626176e-34;     # Planck constant (Js)
-    k = 1.380662e-23;     # Boltzmann constant (J/K)
-    T0 = h*f/k
-    if (T > 0.0): 
-        Tb = T0/(numpy.exp(T0/T)-1.0);
-    else:         
-        Tb = 0.0;
-    return Tb
+def ssbcurve(spec):
+    dB = {'495': -26.7, '549': -27.7, '555': -32.3, '572': -28.7}
+    if spec.frontend in ['495', '549', '555', '572']:
+        maxdB = dB[spec.frontend]
+    else:
+        return numpy.ones(shape=len(spec.data,))
+
+    fIF = 3900e6
+    if spec.skyfreq > spec.lofreq:
+        fim = spec.lofreq - fIF
+    else:
+        fim = spec.lofreq + fIF
+    c = 2.9979e8
+    d0 = c / fIF / 4.0
+    l = c / fim
+    n = numpy.floor(d0 / l)
+    dx = (n + 0.5) * l - d0
+
+    x0 = d0 + dx
+    if spec.skyfreq > spec.lofreq:
+        f = get_frequency(spec) - 2.0 * fIF / 1.0e9
+    else:
+        f = get_frequency(spec) + 2.0 * fIF / 1.0e9
+        fim = spec.lofreq + fIF
+    l = c / f / 1.0e9
+    p = 2.0 * numpy.pi * x0 / l
+    Y = 0.5 * (1.0 + numpy.cos(p))
+    S = 10.0**(maxdB / 10.0)
+    Z = S + (1.0 - S) * Y
+    Z = 1.0 - Z
+    return Z
+
+
+def matrix(spectra):
+    if not spectra:
+        return None
+
+    rows = len(spectra)
+    cols = len(spectra[0].data)
+
+    stw = numpy.zeros(shape=(rows,))
+    start = numpy.zeros(shape=(rows,))
+    inttime = numpy.zeros(shape=(rows,))
+    mat = numpy.zeros(shape=(rows, cols))
+
+    for index in range(rows):
+        spec = spectra[index]
+        if spec.data.shape[0] == cols:
+            mat[index, :] = spec.data
+        else:
+            pass
+        stw[index] = spec.stw
+        inttime[index] = spec.inttime
+        start[index] = spec.start
+
+    return (stw, mat, inttime, start)
+
+
+def get_frequency(spec):
+    df = 1.0e6
+    n = 896
+    f = numpy.zeros(shape=(n,))
+    for j in range(n / 8):
+        f[j + 0 * n / 8] = spec.ssb_fq[0] * 1e6 - (n / 8 - 1 - j) * df
+        f[j + 1 * n / 8] = spec.ssb_fq[0] * 1e6 + j * df
+        f[j + 2 * n / 8] = spec.ssb_fq[1] * 1e6 - (n / 8 - 1 - j) * df
+        f[j + 3 * n / 8] = spec.ssb_fq[1] * 1e6 + j * df
+        f[j + 4 * n / 8] = spec.ssb_fq[2] * 1e6 - (n / 8 - 1 - j) * df
+        f[j + 5 * n / 8] = spec.ssb_fq[2] * 1e6 + j * df
+        f[j + 4 * n / 8] = spec.ssb_fq[2] * 1e6 + j * df
+        f[j + 5 * n / 8] = spec.ssb_fq[2] * 1e6 - (n / 8 - 1 - j) * df
+        f[j + 6 * n / 8] = spec.ssb_fq[3] * 1e6 - (n / 8 - 1 - j) * df
+        f[j + 7 * n / 8] = spec.ssb_fq[3] * 1e6 + j * df
+
+    seq = [1, 1, 1, -1, 1, 1, 1, -1, 1, -1, 1, 1, 1, -1, 1, 1]
+    m = 0
+    for adc in range(8):
+        if seq[2 * adc]:
+            k = seq[2 * adc] * 112
+            df = 1.0e6 / seq[2 * adc]
+            if seq[2 * adc + 1] < 0:
+                df = -df
+            for j in range(k):
+                f[m+j] = spec.ssb_fq[adc / 2] * 1e6 + j * df
+            m += k
+    fdata = numpy.zeros(shape=(n,))
+    if spec.skyfreq >= spec.lofreq:
+        for i in range(n):
+            v = f[i]
+            v = spec.lofreq + v
+            v /= 1.0e9
+            fdata[i] = v
+    else:
+        for i in range(n):
+            v = f[i]
+            v = spec.lofreq - v
+            v /= 1.0e9
+            fdata[i] = v
+    return fdata
+
+
+def get_medtsys(cals):
+    cal = cals[0]
+    (tmin, tmax) = acceptable_tsys(cal.frontend)
+    (_, cmat, _, _) = matrix(cals)
+    if cal.backend == 'AOS':
+        cal.data = numpy.add.reduce(cmat) / float(cmat.shape[0])
+    else:
+        n_channels = 112
+        bands = len(cal.data) / n_channels
+        cal.data = numpy.zeros(shape=(len(cal.data,)))
+        for band in range(bands):
+            data = numpy.zeros(shape=(n_channels,))
+            i0 = band * n_channels
+            k = 0
+            for i in range(cmat.shape[0]):
+                d = cmat[i, i0:i0 + n_channels]
+                if len(numpy.nonzero(d)[0]) == n_channels:
+                    tsys = numpy.add.reduce(d) / n_channels
+                    if tsys > tmin and tsys < tmax:
+                        data = data + d
+                        k = k + 1
+            if k > 0:
+                data = data / float(k)
+            cal.data[i0:i0 + n_channels] = data
+    return cal
+
+
+def get_tsys(cal, ref):
+    data = numpy.zeros(shape=(len(cal.data),))
+    epsr = 1.0
+    eta_mt = 1.0
+    eta_ms = 1.0
+    tspill = 290.0
+    t_bg = planck(2.7, cal.skyfreq)
+    t_hot = planck(cal.tcal, cal.skyfreq)
+    if t_hot == 0.0:
+        t_hot = 275.0
+    dt = (
+        epsr * eta_mt * t_hot - eta_ms * t_bg +
+        (eta_ms - eta_ms) * tspill
+    )
+    for index in range(0, len(cal.data)):
+        if ref.data[index] > 0.0:
+            if cal.data[index] > ref.data[index]:
+                data[index] = (
+                    ref.data[index] /
+                    (cal.data[index] - ref.data[index])
+                )
+                data[index] *= dt
+            else:
+                data[index] = 0.0
+        else:
+            data[index] = 0.0
+    return data
+
+
+def interpolate(mstw, m, stw):
+    rows = m.shape[0]
+    if rows != len(mstw):
+        raise IndexError
+    index = numpy.searchsorted(mstw, stw)
+
+    if index == 0:
+        return m[0]
+    if index == rows:
+        return m[rows - 1]
+
+    dt0 = float(mstw[index] - stw)
+    dt1 = float(stw - mstw[index - 1])
+    dt = float(mstw[index] - mstw[index - 1])
+    return (dt0 * m[index - 1] + dt1 * m[index]) / dt
+
+
+def acceptable_tsys(rx):
+    if rx == '119':
+        tmin = 400.0
+        tmax = 1500.0
+    else:
+        tmin = 2000.0
+        tmax = 7000.0
+    return (tmin, tmax)
+
+
+def calibrate_partial(sig, ref, cal):
+    # eta_ml = [0.976, 0.968, 0.978, 0.975, 0.954]
+    eta = 1.0
+    eta_ms = 1.0
+    t_amb = 290.0
+    t_bg = planck(2.7, sig.skyfreq)
+    spill = eta_ms * t_bg - (eta_ms - eta) * t_amb
+    ok_ind = numpy.nonzero(ref > 0.0)[0]
+    data = numpy.zeros(shape=len(sig.data),)
+    data[ok_ind] = (
+        (sig.data[ok_ind] - ref[ok_ind]) / ref[ok_ind] *
+        cal[ok_ind] + spill
+    ) / eta
+    sig.data = data
+    sig.type = 'SPE'
+
+
+def sortspec(spectra):
+    sig = []
+    ref = []
+    cal = []
+    for spec in spectra:
+        if spec.type == 'SIG':
+            sig.append(spec)
+        elif (spec.type == 'SK1' or
+              spec.type == 'SK2' or
+              spec.type == 'REF'):
+            ref.append(spec)
+        elif spec.type == 'CAL':
+            cal.append(spec)
+    return (sig, ref, cal)
+
+
+def planck(temperature, frequency):
+    h = 6.626176e-34  # Planck constant (Js)
+    k = 1.380662e-23  # Boltzmann constant (J/K)
+    t0 = h * frequency / k
+    if temperature > 0.0:
+        tb = t0 / (numpy.exp(t0 / temperature) - 1.0)
+    else:
+        tb = 0.0
+    return tb
 
 
 if __name__ == "__main__":
     pass
-
