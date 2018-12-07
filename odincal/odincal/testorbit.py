@@ -6,19 +6,18 @@ class db(DB):
     def __init__(self):
         DB.__init__(self,dbname='odin')
 
-       
+
 class Spectra:
     def __init__(self,con,data):
         self.data=numpy.ndarray(shape=(112*8,),
-                     dtype='float64',buffer=con.unescape_bytea(
-                     data['spectra']))
+                     dtype='float64',buffer=data['spectra'])
         self.stw=data['stw']
-        self.LO=eval(data['ssb_fq'].replace('{','(').replace('}',')'))
+        self.LO=data['ssb_fq']
         self.backend=data['backend']
         self.frontend=data['frontend']
         self.vgeo=data['vgeo']
         if data['sig_type']!='sig':
-            self.vgeo=0 
+            self.vgeo=0
         self.tcal=data['hotloada']
         self.freqres=1e6
         self.inttime=data['inttime']
@@ -35,7 +34,7 @@ class Spectra:
         self.latitude=data['latitude']
         self.longitude=data['longitude']
         self.altitude=data['altitude']
-    
+
 
 def find_orbits(con):
     #find out which orbits we have and start/end stws
@@ -66,8 +65,8 @@ def find_scan_in_orbit(con,orbit):
     'scan_end'    :[],
     'scans'       :[],
     }
-    query=con.query('''select stw,start 
-                   from ac_level0 
+    query=con.query('''select stw,start
+                   from ac_level0
                    natural left join getscans()
                    where start>={1} and start<={2}
                    and backend='AC2'
@@ -82,7 +81,7 @@ def find_scan_in_orbit(con,orbit):
     for row in result:
         starts.append(row['start'])
         stws.append(row['stw'])
-    
+
     starts=numpy.array(starts)
     starts_unique=numpy.unique(starts)
     stws=numpy.array(stws)
@@ -100,12 +99,12 @@ def find_scan_in_orbit(con,orbit):
             scans.append(stwscan)
             #find out if this scan is processed
             #proctest=[stwscan.min(),stwscan.max()]
-            #query=con.query('''select stw from ac_level1b 
+            #query=con.query('''select stw from ac_level1b
             #       where stw>={0} and stw<={1}
             #       and backend='AC2'
             #       order by stw'''.format(*proctest))
             #result=query.getresult()
-            
+
 
     if len(scanstart)>0:
         orbitscandict['orbit']=orbit[0]
@@ -118,7 +117,7 @@ def find_scan_in_orbit(con,orbit):
     else:
         return []
 
-   
+
 def data_from_orbit(con,orbit):
     #first select all necessary data for each orbit
     stwlim=[min(orbit['scan_start']),max(orbit['scan_end'])]
@@ -133,9 +132,9 @@ def data_from_orbit(con,orbit):
                        where stw>={0} and stw<={1}
                        and backend='AC2'
                        order by stw'''.format(*stwlim))
-    
+
     result=query.dictresult()
-    
+
     if len(result)==0:
         return
 
@@ -147,20 +146,20 @@ def data_from_orbit(con,orbit):
     stwac2=numpy.array(stwac2)
     processlim=[orbit['orbit'],'AC2']
     query=con.query('''select stws,stws_shape,processed from process where
-                       orbit={0} and backend='{1}' '''.format(*processlim)) 
+                       orbit={0} and backend='{1}' '''.format(*processlim))
     proresult=query.dictresult()
     if len(proresult)==0:
         #not yet processed , insert into process
         insert=1
     else:
         stws=numpy.ndarray(shape=eval(proresult[0]['stws_shape']),
-                     dtype='int64',buffer=con.unescape_bytea(proresult[0]['stws']))
+                     dtype='int64',buffer=proresult[0]['stws'])
         if len(stwac2)==len(stws):
             if numpy.all(stwac2==stws):
                 #no new data
                 if proresult[0]['processed']==1:
                     #already processed
-                    return 
+                    return
                 elif proresult[0]['processed']==0:
                     #not processed
                     pass
@@ -170,15 +169,15 @@ def data_from_orbit(con,orbit):
         elif len(stwac2)>len(stws):
             #new data, update process, and process
             pass
-            
+
     temp={
             'orbit'            :processlim[0],
             'backend'          :'AC2',
             'processed'        :0,
-            'stws'             :con.escape_bytea(stwac2.tostring()),
+            'stws'             :stwac2.tostring(),
             'stws_shape'       :stwac2.shape,
             }
-    con.insert('process',temp)        
+    con.insert('process',temp)
 
     frontend=[]
     for row in result:
@@ -206,20 +205,20 @@ def data_from_orbit(con,orbit):
             }
     for row in result:
         if row['sig_type']=='REF' and row['mech_type']=='CAL':
-           row['sig_type']='CAL' 
+           row['sig_type']='CAL'
         #if row['mech_type']=='SK2':
-        #   row['sig_type']='SK2' 
+        #   row['sig_type']='SK2'
 
         spec=Spectra(con,row)
         fe[spec.frontend].append(spec)
     return fe
- 
 
-def testorbit():  
+
+def testorbit():
     con=db()
     #get orbits
     orbits=find_orbits(con)
-    print 'we have attitude data from '+str(len(orbits))+' orbits ' 
+    print 'we have attitude data from '+str(len(orbits))+' orbits '
     for orbit in orbits:
         #find out which scans that starts in orbits
         scans=find_scan_in_orbit(con,orbit)
@@ -236,15 +235,15 @@ def testorbit():
             #fe is a dictionary with keys frontends
             for key in fe.keys():
                 temp=[orbit[1],orbit[2],key]
-                query=con.query('''select start 
-                   from ac_level0 
+                query=con.query('''select start
+                   from ac_level0
                    natural left join getscans()
                    where start>={0} and start<={1}
                    and backend='AC2' and frontend='{2}' group by start
                    '''.format(*temp))
                 res=query.getresult()
                 print 'frontend '+key+' has '+str(len(fe[key]))+' / '+str(len(res))+' spectra / scans in orbit '+str(orbit[0])
-                
+
                 return fe
             break
 
@@ -261,8 +260,7 @@ if 0:
     result=query.dictresult()
     for data in result:
         x=numpy.ndarray(shape=(112*8,),
-                     dtype='float64',buffer=con.unescape_bytea(
-                     data['spectra']))
+                     dtype='float64',buffer=data['spectra'])
         if data['sig_type']=='SIG':
             plt.plot(x,'g')
         elif data['sig_type']=='REF' and data['mech_type']=='CAL':
@@ -273,13 +271,13 @@ if 0:
         print data['mech_type']
     plt.show()
 
-    
+
     process_dict={'ob1xxx' : [['ac1',[1,4,8,12],[[1,2,3],[4,5,6,7],
                                              [8,9,10,11],[12,13,14,15]]]],
               'ob1xxy' :[],}
 
 
-#select stw,mech_type,sig_type,backend,frontend,mode,ssb_fq from fba_level0 
+#select stw,mech_type,sig_type,backend,frontend,mode,ssb_fq from fba_level0
 #natural join ac_level0 where backend='AC2'
 #and stw>= 5530211315
 #order by stw;

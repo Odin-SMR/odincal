@@ -252,7 +252,7 @@ def calibrate_level0(grp, open_con, version):
         filename = job['file']
         suffix = filename[-3:].upper()
         level1b_importer(
-            filename, suffix, 1, version)
+            filename, suffix, version)
         # open_con.delete('in_process', filename)
 
 

@@ -1,27 +1,37 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 
-# pylint: skip-file
 from setuptools import setup, Extension, find_packages
-# from setuptools import get_python_inc
+from setuptools.command.build_ext import build_ext
 
-# incdir = os.path.join(get_python_inc(plat_specific=1), "numpy")
-odinlibdir = "Library"
 
-module1 = Extension('oops.odin',
-                    sources=['oops/odinmodule.c'],
-                    include_dirs=[odinlibdir],
-                    library_dirs=[odinlibdir],
-                    libraries=["odin"]
-                    )
+class CustomBuildExtCommand(build_ext):
+    def run(self):
+        import numpy
+        self.include_dirs.append(numpy.get_include())
+        build_ext.run(self)
 
-setup(name='oops',
-      version='1.1.1',
-      description="Python interface to the Odin C-library",
-      packages=find_packages(),
-      package_data={
-           'oops': ['libfft.so'],
-      },
-      zipsafe=False,
-      author="Michael Olberg",
-      author_email="michael.olberg@chalmers.se",
-      ext_modules=[module1])
+
+def ext_module():
+    result = Extension(
+        'oops.odin',
+        sources=['oops/odinmodule.c'],
+        include_dirs=['Library'],
+        library_dirs=['./Library'],
+        libraries=['odin', 'm'],
+    )
+    return result
+
+
+setup(
+    name='oops',
+    setup_requires=['numpy'],
+    install_requires=['numpy'],
+    version='1.1.1',
+    description="Python interface to the Odin C-library",
+    packages=find_packages(),
+    package_data={'oops': ['libfft.so', 'odinmodule.h']},
+    author="Michael Olberg",
+    author_email="michael.olberg@chalmers.se",
+    cmdclass={'build_ext': CustomBuildExtCommand},
+    ext_modules=[ext_module()],
+)

@@ -22,13 +22,13 @@ class Calibration_spectrum():
         self.altitude_range=[]
         self.hotload_range=[]
         self.spectrum=[]
-  
+
 class Orbit_data_exporter():
     def __init__(self,backend,orbit,con):
         self.backend=backend
         self.orbit=orbit
         self.con=con
-    
+
     def get_db_data(self):
         '''export orbit data from database tables'''
 
@@ -52,17 +52,17 @@ class Orbit_data_exporter():
         temp=[result[0]['min'],result[0]['max'],self.backend,stwoff]
         if self.backend=='AC1':
             query=self.con.query('''
-                  select min(ac_level0.stw),max(ac_level0.stw) 
-                  from ac_level0 
-                  natural join getscansac1({0},{1}+16*60*45) 
+                  select min(ac_level0.stw),max(ac_level0.stw)
+                  from ac_level0
+                  natural join getscansac1({0},{1}+16*60*45)
                   where start>={0} and start<={1} and backend='{2}'
                                  '''.format(*temp))
-    
+
         if self.backend=='AC2':
             query=self.con.query('''
-                  select min(ac_level0.stw),max(ac_level0.stw) 
-                  from ac_level0 
-                  natural join getscansac2({0},{1}+16*60*45) 
+                  select min(ac_level0.stw),max(ac_level0.stw)
+                  from ac_level0
+                  natural join getscansac2({0},{1}+16*60*45)
                   where start>={0} and start<={1} and backend='{2}'
                                  '''.format(*temp))
 
@@ -85,12 +85,12 @@ class Orbit_data_exporter():
               join attitude_level1  using (backend,stw)
               join ac_level0  using (backend,stw)
               join shk_level1  using (backend,stw)
-              where stw>={0} and stw<={1} and backend='{2}' and version=8 
+              where stw>={0} and stw<={1} and backend='{2}' and version=8
               and sig_type='SIG'
               order by stw asc,intmode asc'''.format(*temp))
         result=query.dictresult()
         print len(result)
-    
+
         #extract all calibration spectrum data for the orbit
         query2=self.con.query('''
                select stw,backend,orbit,mjd,lst,intmode,spectra,alevel,version,
@@ -109,11 +109,11 @@ class Orbit_data_exporter():
         print len(result2)
 
         if result==[] or result2==[]:
-            print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit 
+            print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit
             return 0
 
 
-        #combine target and calibration data 
+        #combine target and calibration data
         self.specdata=[] #list of both target and calibration spectrum data
         self.scaninfo=[] #list of calstw that tells which scan a spectra belongs too
 
@@ -127,10 +127,10 @@ class Orbit_data_exporter():
             for row in result:
                 if row['calstw']==row2['stw']:
                     self.scaninfo.append(row['calstw'])
-                    self.specdata.append(row) 
-    
+                    self.specdata.append(row)
+
         return 1
-    
+
     def decode_data(self):
 
         self.spectra=[]
@@ -170,20 +170,13 @@ class Orbit_data_exporter():
             a.longitude=res['longitude']                            #20
             a.latitude=res['latitude']                              #21
             a.altitude=res['altitude']                              #22
-            a.qtarget=eval(res['qtarget'].replace(
-                    '{','[').replace('}',']'))                      #23 
-            a.qachieved=eval(res['qachieved'].replace(
-                    '{','[').replace('}',']'))                      #24
-            a.qerror=eval(res['qerror'].replace(
-                    '{','[').replace('}',']'))                      #25
-            a.gpspos=eval(res['gpspos'].replace(
-                    '{','[').replace('}',']'))                      #26
-            a.gpsvel=eval(res['gpsvel'].replace(
-                    '{','[').replace('}',']'))                      #27
-            a.sunpos= eval(res['sunpos'].replace(
-                    '{','[').replace('}',']'))                      #28
-            a.moonpos=eval(res['moonpos'].replace(
-                    '{','[').replace('}',']'))                      #29
+            a.qtarget=res['qtarget']                    #23
+            a.qachieved=res['qachieved']                      #24
+            a.qerror=res['qerror']                     #25
+            a.gpspos=res['gpspos']                      #26
+            a.gpsvel=res['gpsvel']                     #27
+            a.sunpos= res['sunpos']                      #28
+            a.moonpos=res['moonpos']                    #29
             a.sunzd=res['sunzd']                                    #30
             a.vgeo=res['vgeo']                                      #31
             a.vlsr=res['vlsr']                                      #32
@@ -199,7 +192,7 @@ class Orbit_data_exporter():
             a.maxsup=res['maxsuppression']                          #39
             a.soda=res['soda']                                      #40
             a.freqres=1000000.0                                     #41
-            ssb_fq=eval(res['ssb_fq'].replace('{','[').replace('}',']'))
+            ssb_fq=res['ssb_fq']
             for iq in range(len(ssb_fq)):
 		ssb_fq[iq]=ssb_fq[iq]*1e6
             a.freqcal=ssb_fq                        	            #42
@@ -210,9 +203,9 @@ class Orbit_data_exporter():
             except:
                 a.efftime=0
             a.channels=res['channels']                              #46
-         
+
             a.data=numpy.ndarray(shape=(res['channels'],),dtype='float64',
-                           buffer=con.unescape_bytea(res['spectra']))
+                           buffer=con.res['spectra'])
 
             self.spectra.append(a)
 
@@ -221,16 +214,16 @@ def planck(T,f):
     h = 6.626176e-34;     # Planck constant (Js)
     k = 1.380662e-23;     # Boltzmann constant (J/K)
     T0 = h*f/k
-    if (T > 0.0): 
+    if (T > 0.0):
         Tb = T0/(numpy.exp(T0/T)-1.0);
-    else:         
+    else:
         Tb = 0.0;
     return Tb
 
 def freq(lofreq,skyfreq,LO):
     n=896
     f=numpy.zeros(shape=(n,))
-    seq=[1,1,1,-1,1,1,1,-1,1,-1,1,1,1,-1,1,1] 
+    seq=[1,1,1,-1,1,1,1,-1,1,-1,1,1,1,-1,1,1]
     m=0
     for adc in range(8):
         if seq[2*adc]:
@@ -238,17 +231,17 @@ def freq(lofreq,skyfreq,LO):
             df = 1.0e6/seq[2*adc]
             if seq[2*adc+1] < 0:
                 df=-df
-            for j in range(k): 
+            for j in range(k):
                 f[m+j] = LO[adc/2] +j*df;
             m += k;
     fdata=numpy.zeros(shape=(n,))
-    if skyfreq >= lofreq:            
-        for i in range(n):               
+    if skyfreq >= lofreq:
+        for i in range(n):
             v = f[i]
             v = lofreq + v
             v /= 1.0e9
             fdata[i] = v
-    else: 
+    else:
         for i in range(n):
             v = f[i]
             v = lofreq - v
@@ -266,31 +259,31 @@ class Calibration_step2():
 
         hotload_lower=int(numpy.floor(hotload))
         hotload_upper=int(numpy.ceil(hotload))
-        hotload_range='''{{{0},{1}}}'''.format(*[hotload_lower,hotload_upper])  
+        hotload_range='''{{{0},{1}}}'''.format(*[hotload_lower,hotload_upper])
         temp=[backend,frontend,version,intmode,sourcemode,freqmode,
               ssb_fq,altitude_range,hotload_range]
 
         #find out if we already have required data
         for ind,spec in enumerate(self.spectra):
-            if (spec.backend==backend and 
+            if (spec.backend==backend and
                 spec.frontend==frontend and
-                spec.version==version and 
-                spec.intmode==intmode and 
+                spec.version==version and
+                spec.intmode==intmode and
                 spec.sourcemode==sourcemode and
-                spec.freqmode==freqmode and 
-                spec.ssb_fq==ssb_fq and 
-                spec.altitude_range==altitude_range and 
+                spec.freqmode==freqmode and
+                spec.ssb_fq==ssb_fq and
+                spec.altitude_range==altitude_range and
                 spec.hotload_range==hotload_range):
                 self.spec=spec
                 return
 
-        #now we did not have the required data, so load it    
+        #now we did not have the required data, so load it
         query=self.con.query('''
               select hotload_range,median_fit,channels
               from ac_cal_level1c where backend='{0}' and
               frontend='{1}' and version={2} and intmode={3}
-              and sourcemode='{4}' and freqmode={5} and ssb_fq='{6}' and 
-              altitude_range='{7}' and hotload_range='{8}' 
+              and sourcemode='{4}' and freqmode={5} and ssb_fq='{6}' and
+              altitude_range='{7}' and hotload_range='{8}'
                              '''.format(*temp))
         result=query.dictresult()
         if result==[]:
@@ -298,8 +291,7 @@ class Calibration_step2():
         else:
             medianfit=numpy.ndarray(shape=(result[0]['channels'],),
                                 dtype='float64',
-                                buffer=con.unescape_bytea(
-                                    result[0]['median_fit']))
+                                buffer=result[0]['median_fit'])
         self.spec=Calibration_spectrum()
         self.spec.backend=backend
         self.spec.frontend=frontend
@@ -312,8 +304,8 @@ class Calibration_step2():
         self.spec.hotload_range=hotload_range
         self.spec.spectrum=medianfit
         self.spectra.append(self.spec)
-       
-        
+
+
     def calibration_step2(self,spec,tspill):
         #compensate for ripple on sky beam signal
         t_load=planck(spec.tcal,spec.skyfreq)
@@ -324,13 +316,13 @@ class Calibration_step2():
         return spec
 
 def create_hdf_file(spectra,outfile):
-    #store data to file 
+    #store data to file
     #   -first store a binary file for each spectra, and produce
     #   a file with a list of all files
-    #   -then produce a level1b hdf-file 
+    #   -then produce a level1b hdf-file
 
     basepath='/home/molflow/odincal'
-     
+
     #store a binary file for each spectra
     filelist=os.path.join(basepath,'odincal/odincal/filelist.txt')
     output=open(filelist,'w+')
@@ -340,7 +332,7 @@ def create_hdf_file(spectra,outfile):
 	#print spec.stw
     output.close()
 
-    # produce a level1b hdf-file 
+    # produce a level1b hdf-file
     ld_path=os.path.join(basepath,'parts/hdf4/lib')
     LD='''LD_LIBRARY_PATH='{0}' '''.format([ld_path])
     program=os.path.join(basepath,'parts/oops/bin/whdf')
@@ -356,13 +348,13 @@ def create_hdf_file(spectra,outfile):
 
     spec.Save(str(spec.spectrum))
 
-	
+
 def create_log_file(spectrum,specdata,scaninfo,outfile,hdfoutfile):
-    
-    #create a log file with information of each scan 
+
+    #create a log file with information of each scan
     calstw=numpy.array(scaninfo)
     calstw_unique=numpy.unique(calstw)
-    
+
     scan=1
     scaninfo2file=[]
     for stw in calstw_unique:
@@ -378,11 +370,11 @@ def create_log_file(spectrum,specdata,scaninfo,outfile,hdfoutfile):
             line = line + "\\N\t\\N\t"
             line = line + "\\N\t\\N\t"
         else:
-            line = line + "%7.2f\t%7.2f\t" % (spectrum[n0].latitude, 
+            line = line + "%7.2f\t%7.2f\t" % (spectrum[n0].latitude,
                                               spectrum[n0].longitude)
-            line = line + "%7.2f\t%7.2f\t" % (spectrum[n1].latitude, 
+            line = line + "%7.2f\t%7.2f\t" % (spectrum[n1].latitude,
                                               spectrum[n1].longitude)
-            line = line + "%7.0f\t%7.0f\t" % (spectrum[n0].altitude, 
+            line = line + "%7.0f\t%7.0f\t" % (spectrum[n0].altitude,
                                               spectrum[n1].altitude)
         if sunZD == 0.0:
             line = line + "\\N\t"
@@ -400,7 +392,7 @@ def create_log_file(spectrum,specdata,scaninfo,outfile,hdfoutfile):
     f = open(outfile, 'w')
     f.writelines(scaninfo2file)
     f.close()
-  
+
 def HDFname(backend, orbit):
     if backend == 'AOS': bcode = 'A'
     elif backend == 'AC1': bcode = 'B'
@@ -412,7 +404,7 @@ def HDFname(backend, orbit):
 
 def usage():
     print "usage: %s orbit (AC1|AC2) (0|1) " % (argv[0])
-    print "1 performs calibration step 2"  
+    print "1 performs calibration step 2"
 
 
 if __name__=='__main__':
@@ -421,21 +413,21 @@ if __name__=='__main__':
     if len(argv)<4:
         usage()
         exit(0)
-    
-    orbit=int(argv[1]) 
+
+    orbit=int(argv[1])
     backend=argv[2]
     calibration=int(argv[3])
-    
+
     con=db()
 
     #export calibration data
     o=Orbit_data_exporter(backend,orbit,con)
     ok=o.get_db_data()
     if ok==0:
-        print 'data for orbit {0} not found'.format(orbit) 
+        print 'data for orbit {0} not found'.format(orbit)
         exit(0)
     o.decode_data()
-  
+
     if calibration==1:
         #perform calibration step2 for target spectrum
         c=Calibration_step2(con)
@@ -449,10 +441,10 @@ if __name__=='__main__':
                 spec=c.calibration_step2(spec,tspill)
             else:
                 tspill=s['tspill']
-		               
-     
 
-    #create files (hdf-file and log-file) 
+
+
+    #create files (hdf-file and log-file)
     hdfname=HDFname(backend, orbit)
     hdfoutfile=hdfname+'.HDF'
     logoutfile=hdfname+'.LOG'
@@ -461,4 +453,3 @@ if __name__=='__main__':
 
     con.close()
     print '''file {0} created'''.format(hdfoutfile)
-

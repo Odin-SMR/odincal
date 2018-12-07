@@ -23,5 +23,5 @@ lib/
 .pytest_cache/
 .ropeproject/
 .tox/
-coverage.xml
-pytest.xml
+**/*.xml
+data/level0

@@ -10,10 +10,10 @@ class Spectra(object):
         self.data = numpy.ndarray(
             shape=(112*8,),
             dtype='float64',
-            buffer=con.unescape_bytea(data['spectra'])
+            buffer=data['spectra']
         )
         self.stw = data['stw']
-        self.ssb_fq = eval(data['ssb_fq'].replace('{', '(').replace('}', ')'))
+        self.ssb_fq = data['ssb_fq']
         self.backend = data['backend']
         self.frontend = data['frontend']
         self.vgeo = data['vgeo']
@@ -23,12 +23,8 @@ class Spectra(object):
             self.tcal = data['hotloadb']
         self.freqres = 1e6
         if data['sig_type'] == 'SIG':
-            self.qerror = eval(
-                data['qerror'].replace('{', '(').replace('}', ')')
-            )
-            self.qachieved = eval(
-                data['qachieved'].replace('{', '(').replace('}', ')')
-            )
+            self.qerror = data['qerror']
+            self.qachieved = data['qachieved']
         self.inttime = data['inttime']
         self.intmode = 511
         self.skyfreq = 0
@@ -51,13 +47,11 @@ class Spectra(object):
         self.corr_coef = numpy.ndarray(
             shape=(8, 96),
             dtype='float64',
-            buffer=con.unescape_bytea(data['cc'])
+            buffer=data['cc']
         )
         self.zerolag = numpy.array(self.corr_coef[0:8, 0])
         self.skybeamhit = data['skybeamhit']
-        self.ssb_att = eval(
-            data['ssb_att'].replace('{', '(').replace('}', ')')
-        )
+        self.ssb_att = data['ssb_att']
         self.gain = []
         self.split = 0
         self.freqmode = 0

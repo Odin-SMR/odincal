@@ -7,15 +7,21 @@
 backports.functools-lru-cache==1.5  # via matplotlib
 coverage==4.5.1
 cycler==0.10.0            # via matplotlib
+filelock==3.0.10          # via tox
 kiwisolver==1.0.1         # via matplotlib
 matplotlib==2.2.2
 numpy==1.15.4
-psycopg2==2.7.5
+pluggy==0.8.0             # via tox
+psycopg2-binary==2.7.6.1
+py==1.7.0                 # via tox
 pygresql==5.0.4
 pyinotify==0.9.6
 pyparsing==2.2.0          # via matplotlib
 python-dateutil==2.7.3    # via matplotlib
 pytz==2018.4              # via matplotlib
-six==1.11.0               # via cycler, matplotlib, python-dateutil
+six==1.11.0               # via cycler, matplotlib, python-dateutil, tox
 sqlalchemy==1.2.8
 subprocess32==3.5.2       # via matplotlib
+toml==0.10.0              # via tox
+tox==3.5.3
+virtualenv==16.1.0        # via tox

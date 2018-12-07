@@ -19,7 +19,7 @@ def HDFname(backend, orbit):
     ocode = "%04X" % (orbit)
     hdffile = "O"+bcode+"1B"+ocode
     return hdffile
-  
+
 
 
 
@@ -28,10 +28,10 @@ def level1b_exporter():
        and store data into hdf5 format'''
     #example usage: bin/level1b_exporter 8575 AC1 odintestfile.hdf5
 
-    orbit=argv[1] 
-    backend=argv[2] 
+    orbit=argv[1]
+    backend=argv[2]
     #outfile=argv[3]
-    orbit1=int(orbit)+14	
+    orbit1=int(orbit)+14
 
     outfile=HDFname(backend, int(orbit))
     hdffile=outfile+'.HDF'
@@ -54,7 +54,7 @@ def level1b_exporter():
                        channels,
                        skyfreq,lofreq,restfreq,maxsuppression,
                        tsys,sourcemode,freqmode,efftime,sbpath,
-                       latitude,longitude,altitude,skybeamhit,  
+                       latitude,longitude,altitude,skybeamhit,
                        ra2000,dec2000,vsource,qtarget,qachieved,qerror,
                        gpspos,gpsvel,sunpos,moonpos,sunzd,vgeo,vlsr,
                        ssb_fq,inttime,ac_level1b.frontend,
@@ -73,7 +73,7 @@ def level1b_exporter():
                        channels,spectype,
                        skyfreq,lofreq,restfreq,maxsuppression,
                        sourcemode,freqmode,sbpath,
-                       latitude,longitude,altitude,skybeamhit,  
+                       latitude,longitude,altitude,skybeamhit,
                        ra2000,dec2000,vsource,qtarget,qachieved,qerror,
                        gpspos,gpsvel,sunpos,moonpos,sunzd,vgeo,vlsr,
                        ssb_fq,inttime,ac_cal_level1b.frontend,
@@ -85,9 +85,9 @@ def level1b_exporter():
                        where stw>={0} and stw<={1} and backend='{2}'
                        order by stw,intmode,spectype'''.format(*temp))
     result2=query2.dictresult()
-   
+
     if result==[]:
-        print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit 
+        print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit
         exit(0)
 
     #combine target and calibration data
@@ -102,8 +102,8 @@ def level1b_exporter():
         for row in result:
             if row['calstw']==row2['stw']:
                 scaninfo.append(row['calstw'])
-                result3.append(row)  
- 
+                result3.append(row)
+
     spectrum=[]
 
     #write data to the odinscan structure for each spectra
@@ -142,13 +142,13 @@ def level1b_exporter():
          a.longitude=res['longitude']                                      #20
          a.latitude=res['latitude']                                        #21
          a.altitude=res['altitude']                                        #22
-  	 a.qtarget=eval(res['qtarget'].replace('{','[').replace('}',']'))   #23 
-	 a.qachieved=eval(res['qachieved'].replace('{','[').replace('}',']'))#24
-         a.qerror=eval(res['qerror'].replace('{','[').replace('}',']'))    #25
-         a.gpspos=eval(res['gpspos'].replace('{','[').replace('}',']'))    #26
-         a.gpsvel=eval(res['gpsvel'].replace('{','[').replace('}',']'))    #27
-         a.sunpos= eval(res['sunpos'].replace('{','[').replace('}',']'))   #28
-         a.moonpos=eval(res['moonpos'].replace('{','[').replace('}',']'))  #29
+  	 a.qtarget=res['qtarget']   #23
+	 a.qachieved=res['qachieved'] #24
+         a.qerror=res['qerror']    #25
+         a.gpspos=res['gpspos']    #26
+         a.gpsvel=res['gpsvel']    #27
+         a.sunpos=res['sunpos']   #28
+         a.moonpos=res['moonpos']  #29
          a.sunzd=res['sunzd']                                              #30
          a.vgeo=res['vgeo']                                                #31
          a.vlsr=res['vlsr']                                                #32
@@ -164,7 +164,7 @@ def level1b_exporter():
          a.maxsup=res['maxsuppression']                                    #39
          a.soda=res['soda']                                                #40
          a.freqres=1000000.0                                               #41
-         ssb_fq=eval(res['ssb_fq'].replace('{','[').replace('}',']'))
+         ssb_fq=res['ssb_fq']
 	 for iq in range(len(ssb_fq)):
 		ssb_fq[iq]=ssb_fq[iq]*1e6
          a.freqcal=ssb_fq                        	                   #42
@@ -175,19 +175,19 @@ def level1b_exporter():
          except:
             a.efftime=0
          a.channels=res['channels']                                        #46
-         
+
          a.data=numpy.ndarray(shape=(res['channels'],),dtype='float64',
-                          buffer=con.unescape_bytea(res['spectra']))
+                          buffer=res['spectra'])
 	 #a.data=numpy.ndarray(shape=(res['channels'],),dtype='float32')
          spectrum.append(a)
 
-    #store data to file 
+    #store data to file
     #   -first store a binary file for each spectra, and produce
     #   a file with a list of all files
-    #   -then produce a level1b hdf-file 
+    #   -then produce a level1b hdf-file
 
     basepath='/home/odinop/odincal_tmp/odincal'
-     
+
     #store a binary file for each spectra
     filelist=os.path.join(basepath,'odincal/odincal/filelist.txt')
     output=open(filelist,'w+')
@@ -200,7 +200,7 @@ def level1b_exporter():
 	#print spec.stw
     output.close()
 
-    # produce a level1b hdf-file 
+    # produce a level1b hdf-file
     ld_path=os.path.join(basepath,'parts/hdf4/lib')
     LD='''LD_LIBRARY_PATH='{0}' '''.format([ld_path])
     program=os.path.join(basepath,'parts/oops/bin/whdf')
@@ -214,11 +214,11 @@ def level1b_exporter():
         cmd=string.join(['rm ',str(spec.spectrum)])
         os.system(cmd)
 
-    
-    #create a log file with information of each scan 
+
+    #create a log file with information of each scan
     calstw=numpy.array(scaninfo)
     calstw_unique=numpy.unique(calstw)
-    
+
     scan=1
     scaninfo2file=[]
     for stw in calstw_unique:
@@ -234,11 +234,11 @@ def level1b_exporter():
             line = line + "\\N\t\\N\t"
             line = line + "\\N\t\\N\t"
         else:
-            line = line + "%7.2f\t%7.2f\t" % (spectrum[n0].latitude, 
+            line = line + "%7.2f\t%7.2f\t" % (spectrum[n0].latitude,
                                               spectrum[n0].longitude)
-            line = line + "%7.2f\t%7.2f\t" % (spectrum[n1].latitude, 
+            line = line + "%7.2f\t%7.2f\t" % (spectrum[n1].latitude,
                                               spectrum[n1].longitude)
-            line = line + "%7.0f\t%7.0f\t" % (spectrum[n0].altitude, 
+            line = line + "%7.0f\t%7.0f\t" % (spectrum[n0].altitude,
                                               spectrum[n1].altitude)
         if sunZD == 0.0:
             line = line + "\\N\t"
@@ -257,6 +257,6 @@ def level1b_exporter():
     f.writelines(scaninfo2file)
     f.close()
     con.close()
-  
+
 
 #../../bin/level1b_exporter 65971 AC1 test.hdf

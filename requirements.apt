@@ -1,0 +1,8 @@
+build-essential
+libhdfeos-dev
+libhdf5-dev
+libnetcdf-dev
+libcfitsio-dev
+libpq-dev
+python-dev
+python-pip

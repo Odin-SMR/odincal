@@ -15,7 +15,7 @@ class db(DB):
 def freq(lofreq,skyfreq,LO):
     n=896
     f=N.zeros(shape=(n,))
-    seq=[1,1,1,-1,1,1,1,-1,1,-1,1,1,1,-1,1,1] 
+    seq=[1,1,1,-1,1,1,1,-1,1,-1,1,1,1,-1,1,1]
     m=0
     for adc in range(8):
         if seq[2*adc]:
@@ -23,17 +23,17 @@ def freq(lofreq,skyfreq,LO):
             df = 1.0e6/seq[2*adc]
             if seq[2*adc+1] < 0:
                 df=-df
-            for j in range(k): 
+            for j in range(k):
                 f[m+j] = LO[adc/2] +j*df;
             m += k;
     fdata=N.zeros(shape=(n,))
-    if skyfreq >= lofreq:            
-        for i in range(n):               
+    if skyfreq >= lofreq:
+        for i in range(n):
             v = f[i]
             v = lofreq + v
             v /= 1.0e9
             fdata[i] = v
-    else: 
+    else:
         for i in range(n):
             v = f[i]
             v = lofreq - v
@@ -58,16 +58,15 @@ def decode_data(con,row):
       'altitude_range'   : [],
       'hotload_range'    : [],
       }
-   
+
     for item in data.keys():
         if item=='mean_spectra' or item=='median_spectra':
             data[item]=N.ndarray(shape=(row['channels'],),dtype='float64',
-                           buffer=con.unescape_bytea(row[item]))
+                           buffer=row[item])
         elif item=='ssb_fq' or item=='altitude_range' or item=='hotload_range':
-            data[item]=N.array(
-                eval(row[item].replace('{','[').replace('}',']')))
+            data[item]=N.array(row[item])
         else:
-            data[item]=row[item] 
+            data[item]=row[item]
     return data
 
 
@@ -84,7 +83,7 @@ class Fit_spectrum():
         #find indexes of the spectrum medianTb
         #that are "contaminated by atmospheric lines"
         #these indexes will not be used for the low pass fit
-    
+
         #if medianTb spectrum change by more than 0.3 K between
         #five channels we flag this channel to be contaminated
         index=N.nonzero(N.abs(spectrum[5:-5]-
@@ -95,9 +94,9 @@ class Fit_spectrum():
             zr=15
             non_ok_index.extend(
                 N.array(range(N.max([0,ind-zr]),N.min([ind+zr,112*2]))))
-    
+
         #find indexes of "dead" channels
-        non_ok=N.nonzero( (spectrum==0))[0] 
+        non_ok=N.nonzero( (spectrum==0))[0]
         non_ok.shape=(non_ok.shape[0],)
 
         #combine indexes that are contamintated by lines or dead
@@ -109,32 +108,32 @@ class Fit_spectrum():
 
         self.get_ssb_module_indexes()
         n=112*2 #number of channels per module
-        
+
         #first fit data from each ssb module independently
         A=[]
         Err=[]
         for ind,module in enumerate(self.module_indexes):
-            
+
             #find indexes for the current module
             spectrum_indexes=range(ind*n,(ind+1)*n)
             self.freq_indexes=range(module*n,(module+1)*n)
             module_data=N.array(self.medianTb[spectrum_indexes])
             module_freq=N.array(self.f[self.freq_indexes])
-            
+
             #sort data on frequency
             sort_freq=N.argsort(module_freq)
-            
+
             #now apply a low pass filter on frequency sorted data
             non_ok_index=self.filter_spectrum(
                 module_freq[sort_freq],module_data[sort_freq])
-            
+
             #take care of that the filter was applied on sorted data
             if len(non_ok_index)>0:
                 non_ok_index=sort_freq[non_ok_index]
             ok_index=N.setdiff1d(range(n),non_ok_index)
-            
+
             #now fit data (part 1)
-            #fit the function y=a+b*sin(c*freq+d) 
+            #fit the function y=a+b*sin(c*freq+d)
             #for a range of fixed c parameters
             a,err=self.fit_module_data(
                 module_freq[ok_index],module_data[ok_index],module)
@@ -156,9 +155,9 @@ class Fit_spectrum():
             find=N.nonzero(self.medianTb[spectrum_indexes]==0)[0]
             Tbfit[find]=0
             median_fit.extend(Tbfit)
-        
+
         self.median_fit=N.array(median_fit)
-        Tdata={'median'     :  self.medianTb, 
+        Tdata={'median'     :  self.medianTb,
               'highaltfit' :  self.median_fit}
         print str(self.data['backend']+' '+self.data['frontend']+' '+
                   self.data['sourcemode']+' '+
@@ -166,9 +165,9 @@ class Fit_spectrum():
                   str(self.data['intmode'])+
                   str(self.data['hotload_range']))
         return Tdata
-              
+
     def plot_fit(self):
-        
+
         import matplotlib.pyplot as plt
         plt.plot(self.freq,self.medianTb,'.r',
                  self.freq,self.median_fit,'.g')
@@ -221,13 +220,13 @@ class Fit_spectrum():
 
             a.append([a0,a1,a2,a3])
             err.append(N.sum((fa-spectrum)**2))
-     
+
         return a,err
 
     def get_ssb_module_indexes(self):
         n=2*112
         if self.intmode==511:
-            module_indexes=range(0,4) 
+            module_indexes=range(0,4)
             self.freq=self.f
         elif self.intmode==1023:
             module_indexes=N.argsort(self.ssb_fq)[2:4]
@@ -248,7 +247,7 @@ class Fit_spectrum():
                                     (module_indexes[1]+1)*n))
             self.freq=self.f[freq_indexes]
         self.module_indexes=module_indexes
-        
+
 
 
 def main():
@@ -258,30 +257,30 @@ def main():
     con=db()
     version=8
     temp=[version,'{80000,120000}']
-    #find out for which modes we have data in the ac_level1b_average table    
+    #find out for which modes we have data in the ac_level1b_average table
     query=con.query(''' select backend,frontend,
                   version,intmode,
                   sourcemode,freqmode,ssb_fq,hotload_range,
                   altitude_range,median_spectra,mean_spectra,
                   skyfreq,lofreq,channels
-                  from ac_level1b_average 
+                  from ac_level1b_average
                   where version={0} and altitude_range='{1}'
                   order by backend,sourcemode,freqmode,
                   frontend,ssb_fq,hotload_range
                   '''.format(*temp))
     result=query.dictresult()
-    
+
     #fit data for each mode and import to table ac_cal_level1c
     for row in result:
         data=decode_data(con,row)
         f=freq(data['lofreq'],data['skyfreq'],
                    data['ssb_fq']*1e6)
-        
+
         f=Fit_spectrum(data,f)
         Tdata=f.fit_spectrum()
         if 0:
             f.plot_fit()
-        
+
 
         if 1:
             temp={
@@ -294,28 +293,24 @@ def main():
             'ssb_fq'          :row['ssb_fq'],
             'hotload_range'   :row['hotload_range'],
             'altitude_range'  :row['altitude_range'],
-            'median_spectra'  :con.escape_bytea(Tdata['median'].tostring()),
-            'median_fit'      :con.escape_bytea(Tdata['highaltfit'].tostring()),
+            'median_spectra'  :Tdata['median'].tostring(),
+            'median_fit'      :Tdata['highaltfit'].tostring(),
             'channels'        :len(Tdata['median']),
             }
-        
+
             tempkeys=[temp['backend'],temp['frontend'],temp['version'],
                      temp['intmode'],temp['sourcemode'],temp['freqmode'],
                      temp['ssb_fq'],temp['hotload_range'],
                       temp['altitude_range']]
-            con.query('''delete from ac_cal_level1c 
+            con.query('''delete from ac_cal_level1c
                      where backend='{0}' and frontend='{1}'
-                     and version={2} and intmode={3} 
+                     and version={2} and intmode={3}
                      and sourcemode='{4}' and freqmode={5}
                      and ssb_fq='{6}' and
-                     hotload_range='{7}' and 
+                     hotload_range='{7}' and
                      altitude_range='{8}' '''.format(*tempkeys))
             con.insert('ac_cal_level1c',temp)
         else:
             pass
 
     con.close()
-
- 
- 
-
