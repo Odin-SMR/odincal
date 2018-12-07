@@ -88,8 +88,8 @@ def getSHK(hk):
 
 def db_prep(datadict, db):
     dbdict = dict(datadict)
-    dbdict['acd_mon'] = db.escape_bytea(datadict['acd_mon'])
-    dbdict['cc'] = db.escape_bytea(datadict['cc'])
+    dbdict['acd_mon'] = datadict['acd_mon']
+    dbdict['cc'] = datadict['cc']
     return dbdict
 
 

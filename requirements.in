@@ -1,7 +1,8 @@
 coverage
 numpy==1.15.4
 matplotlib
-psycopg2
+psycopg2-binary
 PyGreSQL
 pyinotify
 SQLAlchemy
+tox

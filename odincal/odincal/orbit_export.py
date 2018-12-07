@@ -6,15 +6,15 @@ import matplotlib.pyplot as plt
 from pg import DB
 from sys import stderr,stdout,stdin,argv,exit
 import h5py
- 
+
 class db(DB):
     def __init__(self):
         DB.__init__(self,dbname='odin')
 
 
 if __name__ == "__main__":
-    orbit=argv[1] 
-    backend=argv[2] 
+    orbit=argv[1]
+    backend=argv[2]
     outfile=argv[3]
 
     con =db()
@@ -33,8 +33,8 @@ if __name__ == "__main__":
     else:
         stwoff=0
     temp=[result[0]['min'],result[0]['max'],backend,stwoff]
-    query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
-                   from ac_level0 
+    query=con.query('''select min(ac_level0.stw),max(ac_level0.stw)
+                   from ac_level0
                    join getscans() on (getscans.stw+{3}=ac_level0.stw)
                    where start>={0} and start<={1}
                    and backend='{2}'
@@ -52,7 +52,7 @@ if __name__ == "__main__":
                        channels,
                        skyfreq,lofreq,restfreq,maxsuppression,
                        tsys,sourcemode,freqmode,efftime,sbpath,
-                       calstw,latitude,longitude,altitude,skybeamhit,  
+                       calstw,latitude,longitude,altitude,skybeamhit,
                        ra2000,dec2000,vsource,qtarget,qachieved,qerror,
                        gpspos,gpsvel,sunpos,moonpos,sunzd,vgeo,vlsr,
                        ssb_fq,inttime,frontend,
@@ -65,7 +65,7 @@ if __name__ == "__main__":
                        order by stw'''.format(*temp))
     result=query.dictresult()
     if result==[]:
-        print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit 
+        print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit
         exit(0)
     g= h5py.File(outfile,'w')
     stw=[]
@@ -86,22 +86,22 @@ if __name__ == "__main__":
     freqmode=[]
     efftime=[]
     sbpath=[]
-    latitude=[]    
-    longitude=[]   
-    altitude=[]      
-    skybeamhit=[]    
-    ra2000=[]            
-    dec2000=[]      
-    vsource=[]     
-    qtarget=[]       
-    qachieved=[]     
-    qerror=[]        
-    gpspos=[]       
-    gpsvel=[]      
-    sunpos=[]       
-    moonpos=[]      
-    sunzd=[]       
-    vgeo=[]          
+    latitude=[]
+    longitude=[]
+    altitude=[]
+    skybeamhit=[]
+    ra2000=[]
+    dec2000=[]
+    vsource=[]
+    qtarget=[]
+    qachieved=[]
+    qerror=[]
+    gpspos=[]
+    gpsvel=[]
+    sunpos=[]
+    moonpos=[]
+    sunzd=[]
+    vgeo=[]
     vlsr=[]
     ssb_fq=[]
     inttime=[]
@@ -115,7 +115,7 @@ if __name__ == "__main__":
         orbit.append(res['orbit'])
         lst.append(res['lst'])
         spec=numpy.ndarray(shape=(res['channels'],),dtype='float64',
-                           buffer=con.unescape_bytea(res['spectra']))
+                           buffer=res['spectra'])
         spectra.append(spec)
         intmode.append(res['intmode'])
         channels.append(res['channels'])
@@ -129,22 +129,22 @@ if __name__ == "__main__":
         freqmode.append(res['freqmode'])
         efftime.append(res['efftime'])
         sbpath.append(res['sbpath'])
-        latitude.append(res['latitude'])  
-        longitude.append(res['longitude']) 
-        altitude.append(res['altitude'])    
-        skybeamhit.append(res['skybeamhit'])  
-        ra2000.append(res['ra2000'])          
-        dec2000.append(res['dec2000'])    
-        vsource.append(res['vsource'])   
-        qtarget.append(res['qtarget'])     
-        qachieved.append(res['qachieved'])   
-        qerror.append(res['qerror'])      
-        gpspos.append(res['gpspos'])     
-        gpsvel.append(res['gpsvel'])    
-        sunpos.append(res['sunpos'])     
-        moonpos.append(res['moonpos'])    
-        sunzd.append(res['sunzd'])     
-        vgeo.append(res['vgeo'])        
+        latitude.append(res['latitude'])
+        longitude.append(res['longitude'])
+        altitude.append(res['altitude'])
+        skybeamhit.append(res['skybeamhit'])
+        ra2000.append(res['ra2000'])
+        dec2000.append(res['dec2000'])
+        vsource.append(res['vsource'])
+        qtarget.append(res['qtarget'])
+        qachieved.append(res['qachieved'])
+        qerror.append(res['qerror'])
+        gpspos.append(res['gpspos'])
+        gpsvel.append(res['gpsvel'])
+        sunpos.append(res['sunpos'])
+        moonpos.append(res['moonpos'])
+        sunzd.append(res['sunzd'])
+        vgeo.append(res['vgeo'])
         vlsr.append(res['vlsr'])
         ssb_fq.append(res['ssb_fq'])
         inttime.append(res['inttime'])
@@ -169,22 +169,22 @@ if __name__ == "__main__":
     #g['SMR/freqmode']=freqmode
     g['SMR/EffTime']=efftime
     g['SMR/SBpath']=sbpath
-    g['SMR/Latitude']=latitude    
-    g['SMR/Longitude']=longitude   
-    g['SMR/Altitude']=altitude      
-    g['SMR/SkyBeamHit']=skybeamhit    
-    g['SMR/RA2000']=ra2000            
-    g['SMR/Dec2000']=dec2000      
-    g['SMR/VSource']=vsource     
+    g['SMR/Latitude']=latitude
+    g['SMR/Longitude']=longitude
+    g['SMR/Altitude']=altitude
+    g['SMR/SkyBeamHit']=skybeamhit
+    g['SMR/RA2000']=ra2000
+    g['SMR/Dec2000']=dec2000
+    g['SMR/VSource']=vsource
     g['SMR/Qtarget']=qtarget
-    g['SMR/Qachieved']=qachieved     
-    g['SMR/Qerror']=qerror        
-    g['SMR/GPSpos']=gpspos       
-    g['SMR/GPSvel']=gpsvel      
-    g['SMR/SunPos']=sunpos       
-    g['SMR/MoonPos']=moonpos      
-    g['SMR/SunZD']=sunzd       
-    g['SMR/Vgeo']=vgeo          
+    g['SMR/Qachieved']=qachieved
+    g['SMR/Qerror']=qerror
+    g['SMR/GPSpos']=gpspos
+    g['SMR/GPSvel']=gpsvel
+    g['SMR/SunPos']=sunpos
+    g['SMR/MoonPos']=moonpos
+    g['SMR/SunZD']=sunzd
+    g['SMR/Vgeo']=vgeo
     g['SMR/Vlsr']=vlsr
     g['SMR/FreqCal']=ssb_fq
     g['SMR/IntTime']=inttime
@@ -193,4 +193,3 @@ if __name__ == "__main__":
     #g['SMR/LOFreq']=lo
     g.close()
     con.close()
-    

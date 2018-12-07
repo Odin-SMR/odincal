@@ -170,9 +170,9 @@ def ac_level1a_importer(stwa, stwb, backend):
     print len(result)
     for ind, rowb in enumerate(result):
         acd_mon = numpy.ndarray(shape=(8, 2), dtype='float64',
-                                buffer=con.unescape_bytea(rowb['acd_mon']))
+                                buffer=rowb['acd_mon'])
         cc = numpy.ndarray(shape=(8 * 96,), dtype='float64',
-                           buffer=con.unescape_bytea(rowb['cc']))
+                           buffer=rowb['cc'])
         # xheck the mode of the correlator configuration
         seq, chips, band_start = get_seq(rowb['mode'])
         # make a list with of vectors with cc-data for the band

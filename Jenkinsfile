@@ -1,42 +1,31 @@
 @Library('molflow') _
 
-pipeline {
-    agent any
-
-    stages {
-        stage("Unit-tests in Docker") {
-            agent {
-                dockerfile {
-                    filename 'Dockerfile.testenv'
-                }
-            }
-
-            steps {
-                sh "tox -c tox.ini"
-                junit "result.xml"
+node() {
+    def odincalImage
+    try {
+        stage('build') {
+            checkout scm
+            odincalImage = docker.build("docker2.molflow.com/rerun/odincal:${env.BUILD_TAG}")
+        }
+        stage('test OOPS') {
+            odincalImage.inside{
+                sh "tox -c oops/tox.ini"
             }
         }
-
-        stage("Docker build") {
-            steps {
-                sh "docker build -t docker2.molflow.com/odin_redo/odincal:${env.BUILD_TAG} ."
+        stage('test odincal') {
+            odincalImage.inside {
+                sh "tox -c odincal/tox.ini"
             }
         }
-
-        stage("Docker push") {
-            when { environment name: 'GITREF', value: 'master' }
-            steps {
-                sh """docker tag docker2.molflow.com/odin_redo/odincal:${env.BUILD_TAG} \\
-                    docker2.molflow.com/odin_redo/odincal:latest
-                """
-                sh "docker push docker2.molflow.com/odin_redo/odincal:latest"
+        if (env.GITREF == 'master') {
+            stage('push') {
+                odincalImage.push()
+                odincalImage.push('latest')
             }
         }
-    }
-
-    post {
-        always {
-          setPhabricatorBuildStatus PHID
-        }
+    } catch (e) {
+        currentBuild.result = "FAILED"
+    } finally {
+        setPhabricatorBuildStatus env.PHID
     }
 }

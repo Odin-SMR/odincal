@@ -29,7 +29,7 @@ class Level1b_cal:
         if len(ref) > 0:
             ref = self.cleanref(ref)
         if len(ref) == 0:
-            odin.Warn("no reference spectra found") 
+            odin.Warn("no reference spectra found")
             return None,VERSION
         if len(cal) > 0:
             cal = self.cleancal(cal, ref)
@@ -54,7 +54,7 @@ class Level1b_cal:
         ssb = copy.copy(gain)
         ssb.type = 'SSB'
         ssb.data = self.ssbCurve(ssb)
-        calibrated.append(ssb)  
+        calibrated.append(ssb)
         for t in sig:
             s = copy.copy(t)
             #if s.stw < scan[0] or s.stw > scan[1]:
@@ -96,7 +96,7 @@ class Level1b_cal:
                 else:
                     n = 112
                     bands = 8
-                    sigma = numpy.zeros(shape=(bands,)) 
+                    sigma = numpy.zeros(shape=(bands,))
                     for band in range(bands):
                         i0 = band*n
                         i1 = i0+n
@@ -129,7 +129,7 @@ class Level1b_cal:
             # set version number of calibration routine
             #s.level = s.level | VERSION
             if s.type == 'SPE':
-                s.data = numpy.choose(numpy.equal(s.data,0.0), 
+                s.data = numpy.choose(numpy.equal(s.data,0.0),
                                       ((s.data-Tspill)/eta, 0.0))
                 s.efftime = s.inttime*eff
                 #f=self.frequency(s)
@@ -139,25 +139,25 @@ class Level1b_cal:
                 #f2=data.nonzero()
                 #freq=freq[f2]
                 #data=data[f2]
-                #if s.altitude>0 and s.altitude<=15e3: 
+                #if s.altitude>0 and s.altitude<=15e3:
                 #    plt.plot(s.data,'g-')
                 #    #plt.plot(freq,data,'g-')
-                #if s.altitude>15e3 and s.altitude<=20e3: 
+                #if s.altitude>15e3 and s.altitude<=20e3:
                 #    plt.plot(s.data,'r-')
                 #    #plt.plot(freq,data,'r-')
-                #if s.altitude>20e3 and s.altitude<=30e3: 
+                #if s.altitude>20e3 and s.altitude<=30e3:
                 #    plt.plot(s.data,'b-')
                 #    #plt.plot(freq,data,'b-')
-                #if s.altitude>30e3 and s.altitude<=60e3: 
+                #if s.altitude>30e3 and s.altitude<=60e3:
                 #    plt.plot(s.data,'y-')
                 #    #plt.plot(freq,data,'y-')
-                #if s.altitude>60e3: 
+                #if s.altitude>60e3:
                 #    plt.plot(s.data,'k-')
                     #plt.plot(freq,data,'k-')
                 #plt.show()
 
         return calibrated,VERSION
-   
+
     def cleanref(self, ref):
         if len(ref) == 0:
             return
@@ -179,7 +179,7 @@ class Level1b_cal:
             i0 = i[0]*n
             i1 = i0+n
             mr = numpy.add.reduce(rmat[:,i0:i1],1)/float(n)
-            
+
         n = len(mr)
         med = self.medfilter(mr,2)
 
@@ -188,9 +188,9 @@ class Level1b_cal:
                 del ref[i]
         del med
         del mr
-         
+
         return ref
-    
+
 
     def cleancal(self, cal, ref):
         if len(ref) == 0 or len(cal) == 0:
@@ -254,7 +254,7 @@ class Level1b_cal:
             tsys = numpy.sort(mc0)[n1/2]
             print "mean Tsys", tsys
             for i in range(nc-1,-1,-1):
-                if (mc[i] < Tmin or mc[i] > Tmax or 
+                if (mc[i] < Tmin or mc[i] > Tmax or
                     abs((mc[i]-tsys)/tsys) > 0.02):
                     pass
                     del cal[i]
@@ -272,7 +272,7 @@ class Level1b_cal:
 
         stw = numpy.zeros(shape=(rows,))
         mat = numpy.zeros(shape=(rows,cols))
-        
+
         for i in range(rows):
             s = spectra[i]
             if s.data.shape[0] == cols:
@@ -290,7 +290,7 @@ class Level1b_cal:
             maxdB = dB[s.frontend]
         else:
             return numpy.ones(shape=len(s.channels,))
-        
+
         fIF = 3900e6
         if s.skyfreq > s.lofreq:
             fim = s.lofreq - fIF
@@ -301,7 +301,7 @@ class Level1b_cal:
         l = c/fim
         n = numpy.floor(d0/l)
         dx = (n+0.5)*l-d0
-  
+
         x0 = d0+dx
         if s.skyfreq > s.lofreq:
             f = self.frequency(s)-2.0*fIF/1.0e9
@@ -328,7 +328,7 @@ class Level1b_cal:
            if upper:
                for j in range(0,n/4):
                    f[j+0*n/4] = s.LO[2]*1e6 - (n/4-1-j)*df;
-                   f[j+1*n/4] = s.LO[2]*1e6 + j*df;                      
+                   f[j+1*n/4] = s.LO[2]*1e6 + j*df;
                    f[j+2*n/4] = s.LO[3]*1e6 - (n/4-1-j)*df
                    f[j+3*n/4] = s.LO[3]*1e6 + j*df;
            else:
@@ -336,7 +336,7 @@ class Level1b_cal:
                    f[j+0*n/4] = s.LO[0]*1e6 - (n/4-1-j)*df
                    f[j+1*n/4] = s.LO[0]*1e6 + j*df
                    f[j+2*n/4] = s.LO[1]*1e6 - (n/4-1-j)*df
-                   f[j+3*n/4] = s.LO[1]*1e6 + j*df 
+                   f[j+3*n/4] = s.LO[1]*1e6 + j*df
        else:
            for j in range(n/8):
                f[j+0*n/8] = s.LO[0]*1e6 - (n/8-1-j)*df
@@ -345,17 +345,17 @@ class Level1b_cal:
 
                f[j+2*n/8] = s.LO[1]*1e6 - (n/8-1-j)*df
                f[j+3*n/8] = s.LO[1]*1e6 + j*df
-  
+
                f[j+4*n/8] = s.LO[2]*1e6 - (n/8-1-j)*df
                f[j+5*n/8] = s.LO[2]*1e6 + j*df
-               
+
                f[j+4*n/8] = s.LO[2]*1e6 + j*df
                f[j+5*n/8] = s.LO[2]*1e6 - (n/8-1-j)*df
 
                f[j+6*n/8] = s.LO[3]*1e6 - (n/8-1-j)*df
                f[j+7*n/8] = s.LO[3]*1e6 + j*df
-                
-       seq=[1,1,1,-1,1,1,1,-1,1,-1,1,1,1,-1,1,1] 
+
+       seq=[1,1,1,-1,1,1,1,-1,1,-1,1,1,1,-1,1,1]
        m=0
        for adc in range(8):
            if seq[2*adc]:
@@ -363,18 +363,18 @@ class Level1b_cal:
                df = 1.0e6/seq[2*adc]
                if seq[2*adc+1] < 0:
                    df=-df
-               for j in range(k): 
+               for j in range(k):
                    f[m+j] = s.LO[adc/2]*1e6 +j*df;
                m += k;
 
        fdata=numpy.zeros(shape=(n,))
-       if s.skyfreq >= s.lofreq:            
-            for i in range(n):               
+       if s.skyfreq >= s.lofreq:
+            for i in range(n):
                 v = f[i]
                 v = s.lofreq + v
                 v /= 1.0e9
                 fdata[i] = v
-       else: 
+       else:
            for i in range(n):
                v = f[i]
                v = s.lofreq - v
@@ -398,7 +398,7 @@ class Level1b_cal:
             i2 = i1+width
             if i2 > n:
                 i2 = n
-            
+
             # one row of med are 'width' adjacent values
             med[i] = numpy.array(a[i1:i2])
 
@@ -406,7 +406,7 @@ class Level1b_cal:
         med = numpy.sort(med)
         med = med[:,m]
         return med
-        
+
     def interpolate(self, mstw, m, stw):
         rows = m.shape[0]
         if rows != len(mstw):
@@ -478,9 +478,9 @@ class Level1b_cal:
                     data[i] = (ref.data[i]/
                                       (cal.data[i]-ref.data[i]))
                     data[i] *= dT
-                else: 
+                else:
                     data[i] = 0.0;
-            else: 
+            else:
                 data[i] = 0.0;
         return data
 
@@ -507,7 +507,7 @@ class Level1b_cal:
                 data[i]=data[i]*cal[i]
                 data[i] += spill
                 data[i] /= eta
-            else: 
+            else:
                 data[i] = 0.0
         sig.data=data
         sig.type = 'SPE'
@@ -543,7 +543,7 @@ class Level1b_cal:
                 odin.Warn("deleting altitude: %10.3f" % (alt/1000.0))
                 del spectra[i]
         n2 = len(spectra)
-     
+
 
     def freqMode(self, s):
         df = 30.0e6
@@ -605,39 +605,38 @@ class Level1b_cal:
         else:
             self.source ="unknown"
             self.topic = "N/A"
-        
+
         return self.freqmode
 
 def planck(T,f):
     h = 6.626176e-34;     # Planck constant (Js)
     k = 1.380662e-23;     # Boltzmann constant (J/K)
     T0 = h*f/k
-    if (T > 0.0): 
+    if (T > 0.0):
         Tb = T0/(numpy.exp(T0/T)-1.0);
-    else:         
+    else:
         Tb = 0.0;
     return Tb
 
 
 
-class Spectra: 
+class Spectra:
     """A class that perform frequency calibration of ac level 1a spectra"""
     def __init__(self,con,data):
         self.data=numpy.ndarray(shape=(112*8,),
-                     dtype='float64',buffer=con.unescape_bytea(
-                     data['spectra']))
+                     dtype='float64',buffer=data['spectra'])
         self.stw=data['stw']
-        self.LO=eval(data['ssb_fq'].replace('{','(').replace('}',')'))
+        self.LO=data['ssb_fq']
         self.backend=data['backend']
         self.frontend=data['frontend']
         self.vgeo=data['vgeo']
         if data['sig_type']!='SIG':
-            self.vgeo=0 
+            self.vgeo=0
         self.tcal=data['hotloada']
         self.freqres=1e6
         if data['sig_type']=='SIG':
-            self.qerror=eval(data['qerror'].replace('{','(').replace('}',')'))
-            self.qachieved=eval(data['qachieved'].replace('{','(').replace('}',')'))
+            self.qerror=data['qerror']
+            self.qachieved=data['qachieved']
         self.inttime=data['inttime']
         self.intmode=511
         self.skyfreq=[]
@@ -654,7 +653,7 @@ class Spectra:
         self.altitude=data['altitude']
         self.tsys=0
         self.efftime=0
-      
+
     def tuning(self):
 
         if self.frontend == '119':
@@ -662,25 +661,25 @@ class Spectra:
             LOfreq = 114.8498600000000e+9
             self.FCalibrate(self, LOfreq,IFfreq,[])
             return
-        
+
         rxs = { '495': 1, '549': 2, '555': 3, '572': 4 }
         if not self.frontend in rxs.keys():
-            return 
+            return
         (IFfreq,sbpath) = getSideBand(self.frontend, self.lofreq, self.ssb)
         self.sbpath = sbpath/1.0e6
         (ADC_SPLIT, ADC_UPPER) = (0x0200, 0x0400)
         if self.intmode & ADC_SPLIT:
             if self.backend == 'AC1':
-                if self.intmode & ADC_UPPER: 
+                if self.intmode & ADC_UPPER:
                     IFfreq = IFfreq*3.6/3.9
-                else:                     
+                else:
                     IFfreq = IFfreq*4.2/3.9
             elif self.backend == 'AC2':
-                if self.intmode & ADC_UPPER: 
+                if self.intmode & ADC_UPPER:
                     IFfreq = IFfreq*4.2/3.9
-                else:                     
+                else:
                     IFfreq = IFfreq*3.6/3.9
-                
+
         if self.current < 0.25:
             #odin.Warn("low mixer current %5.2f" % (current))
             if rx <> '572':
@@ -690,10 +689,10 @@ class Spectra:
            #odin.Warn("LO frequency lookup failed")
         self.fcalibrate(self.lofreq, IFfreq)
 
-         
+
     def fcalibrate(self,LOfreq, IFfreq):
         """Perform frequency calibration."""
-        if LOfreq == 0.0: 
+        if LOfreq == 0.0:
             return
         if self.frontend == '495' or self.frontend == '549':
             drift = 1.0+(29.23-0.138*self.Tpll)*1.0e-6
@@ -707,7 +706,7 @@ class Spectra:
         # apply Doppler correction
         self.restfreq = self.skyfreq/(1.0 - self.vgeo/2.99792456e8);
         #self.quality = quality
- 
+
 def getSideBand(rx, LO, ssb):
     SSBparams = {
     '495': ( 61600.36, 104188.89, 0.0002977862, 313.0 ),
@@ -723,14 +722,14 @@ def getSideBand(rx, LO, ssb):
         s3900 = 299.79/(ssb + C1)*(C2 + i/sf)-LO/1.0e9;
         if abs(abs(s3900)-3.9) < abs(abs(d)-3.9):
             d = s3900;
-    if d < 0.0: 
+    if d < 0.0:
         IFfreq = -3900.0e6
-    else:       
+    else:
         IFfreq =  3900.0e6
     return (IFfreq,sbpath)
 
-   
-   
+
+
 
 if __name__ == "__main__":
 
@@ -755,8 +754,8 @@ if __name__ == "__main__":
     else:
         stwoff=0
     temp=[result1[0]['min'],result1[0]['max'],backend,stwoff]
-    query=con.query('''select min(ac_level0.stw),max(ac_level0.stw) 
-                   from ac_level0 
+    query=con.query('''select min(ac_level0.stw),max(ac_level0.stw)
+                   from ac_level0
                    join getscans() on (getscans.stw+{3}=ac_level0.stw)
                    where start>={0} and start<={1}
                    and backend='{2}'
@@ -786,7 +785,7 @@ if __name__ == "__main__":
                        order by ac_level0.stw'''.format(*temp))
     result=query.dictresult()
     if result==[]:
-        print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit 
+        print 'could not extract all necessary data for processing '+backend+' in orbit '+orbit
         exit(0)
 
     #group data by frontend
@@ -816,15 +815,15 @@ if __name__ == "__main__":
             }
     for row in result:
         if row['sig_type']=='REF' and row['mech_type']=='CAL':
-           row['sig_type']='CAL' 
+           row['sig_type']='CAL'
         spec=Spectra(con,row)
         fe[spec.frontend].append(spec)
-    
+
     spectra=[]
     frontends=fe.keys()
     for frontend in frontends:
         result=fe[frontend]
-    
+
         for row in result:
             aca=row
             #frequency calibrate
@@ -839,7 +838,7 @@ if __name__ == "__main__":
         modes = numpy.nonzero(abs(fsky[1:]-fsky[:-1]) > 1.0e6)
         modes =numpy.ndarray(shape=(len(modes[0]),),buffer=modes[0])
         # prepend integer '0' and append integer 'len(fsky)'
-        modes = numpy.concatenate((numpy.concatenate(([0], modes)), 
+        modes = numpy.concatenate((numpy.concatenate(([0], modes)),
                                    [len(fsky)]))
         for m in range(len(modes)-1):
             start=int(modes[m])
@@ -855,9 +854,9 @@ if __name__ == "__main__":
                 specs=[]
                 fm=ac.freqMode(s)
                 if s.type == 'CAL':
-                    calstw=s.stw 
+                    calstw=s.stw
                 s.source = ac.source
-                s.topic = ac.topic    
+                s.topic = ac.topic
                 if ac.split:
                     #split data into two spectra
                     aa=odin.Spectrum()
@@ -872,15 +871,15 @@ if __name__ == "__main__":
                 else:
                     specs.append(s)
 
-                for spec in specs: 
-                    
+                for spec in specs:
+
                     if s.type=='SPE':
                         temp={
                     'stw'             :s.stw,
                     'backend'         :s.backend,
                     'version'         :int(VERSION),
                     'intmode'         :spec.intmode,
-                    'spectra'         :con.escape_bytea(spec.data.tostring()),
+                    'spectra'         :spec.data.tostring(),
                     'channels'        :len(spec.data),
                     'skyfreq'         :s.skyfreq,
                     'lofreq'          :s.lofreq,
@@ -893,7 +892,7 @@ if __name__ == "__main__":
                     'sbpath'          :s.sbpath,
                     'calstw'         :calstw
                     }
-                        
+
                         con.insert('ac_level1b',temp)
 
                     elif s.type=='CAL' or s.type=='SSB':
@@ -903,7 +902,7 @@ if __name__ == "__main__":
                     'version'         :int(VERSION),
                     'spectype'        :s.type,
                     'intmode'         :spec.intmode,
-                    'spectra'         :con.escape_bytea(spec.data.tostring()),
+                    'spectra'         :spec.data.tostring(),
                     'channels'        :len(spec.data),
                     'skyfreq'         :s.skyfreq,
                     'lofreq'          :s.lofreq,
@@ -914,7 +913,7 @@ if __name__ == "__main__":
                     'sbpath'          :s.sbpath,
                     }
                         con.insert('ac_cal_level1b',temp)
-            
+
     con.close()
 
 
@@ -931,7 +930,7 @@ if __name__ == "__main__":
 
 
 #orbit number 	FM
-#hex 	dec 	 
+#hex 	dec
 #217F 	8575 	1
 #3217F 	8575 	2
 #23A1 	9121 	8
@@ -949,11 +948,11 @@ if __name__ == "__main__":
 #? 	? 	28
 
 
-orbits=[8575,9121,7424,17594,9120,23919,15990,14839,14549] 
+orbits=[8575,9121,7424,17594,9120,23919,15990,14839,14549]
 
 stw=797880000#02f8deef.ac1
-c = [ -9.631225714726023e-27, 
-       4.743802284530715e-17, 
+c = [ -9.631225714726023e-27,
+       4.743802284530715e-17,
        1.071801519797240e-05,
       -1.818550814109342e+00 ]
 o = c[3] + (c[2] + (c[1] + c[0]*stw)*stw)*stw

@@ -27,9 +27,9 @@ def frequency_calibrate(listof_uncal_spec,con):
     for row in listof_uncal_spec:
         spec=Spectra(con,row,0)
         if spec.lofreq<1:
-           continue	
-        
-        if spec.frontend=='SPL': 
+           continue
+
+        if spec.frontend=='SPL':
             #split data into two spectra
             aa=odin.Spectrum()
             aa.backend=spec.backend
@@ -47,7 +47,7 @@ def frequency_calibrate(listof_uncal_spec,con):
                 spec.data=s2.data
                 spec.intmode=s2.intmode
                 spec.frontend=s2.frontend
-            
+
         spec.tuning()
 	if spec.lofreq<1:
             continue
@@ -56,11 +56,11 @@ def frequency_calibrate(listof_uncal_spec,con):
 
     return listofspec
 
-def intensity_calibrate(listofspec,con,calstw,version,soda):        
+def intensity_calibrate(listofspec,con,calstw,version,soda):
     '''Use the object Level1b_cal to perform intensity calibration
        of a given scan and import the result to database tables.
        The listofspec is assumed to contain data from a window
-       +-45 min around the scan to be calibrated. 
+       +-45 min around the scan to be calibrated.
     '''
 
     if 1:
@@ -76,7 +76,7 @@ def intensity_calibrate(listofspec,con,calstw,version,soda):
         modes = numpy.nonzero(abs(fsky[1:]-fsky[:-1]) > 1.0e6)
         modes=numpy.array(modes[0])
         # prepend integer '0' and append integer 'len(fsky)'
-        modes = numpy.concatenate((numpy.concatenate(([0], modes)), 
+        modes = numpy.concatenate((numpy.concatenate(([0], modes)),
                                    [len(fsky)]))
         for m in range(len(modes)-1):
             start=int(modes[m]+1)
@@ -93,7 +93,7 @@ def intensity_calibrate(listofspec,con,calstw,version,soda):
             (calibrated,VERSION,Tspill)=ac.calibrate(version)
             if calibrated==None:
                 continue
-		
+
             #store data into database tables
             #ac_level1b (spectra) or ac_cal_level1b (tsys and ssb)
 	    print datetime.datetime.now()
@@ -115,9 +115,9 @@ def intensity_calibrate(listofspec,con,calstw,version,soda):
 
 		#return
                 #database insert
-                for spec in specs: 
+                for spec in specs:
 		    #print s.gain
-		    #print 'insert cal'	 
+		    #print 'insert cal'
                     #spec.data=spec.data[0:112]
                     if s.type=='SPE' and s.start==calstw:
                         temp={
@@ -127,7 +127,7 @@ def intensity_calibrate(listofspec,con,calstw,version,soda):
                     'version'         :int(VERSION),
                     'intmode'         :spec.intmode,
                     'soda'            :soda,
-                    'spectra'         :con.escape_bytea(spec.data.tostring()),
+                    'spectra'         :spec.data.tostring(),
                     'channels'        :len(spec.data),
                     'skyfreq'         :s.skyfreq,
                     'lofreq'          :s.lofreq,
@@ -140,15 +140,15 @@ def intensity_calibrate(listofspec,con,calstw,version,soda):
                     'sbpath'          :s.sbpath,
                     'calstw'          :calstw
                     }
-                    
+
                         tempkeys=[
                                 temp['stw'],temp['backend'],
                                 temp['frontend'],temp['version'],
                                 temp['intmode'],temp['soda'],
                                 temp['sourcemode'],temp['freqmode']]
-                        con.query('''delete from ac_level1b 
+                        con.query('''delete from ac_level1b
                      where stw={0} and backend='{1}' and frontend='{2}'
-                     and version={3} and intmode={4} and soda={5} and 
+                     and version={3} and intmode={4} and soda={5} and
                      sourcemode='{6}' and freqmode={7}'''.format(
                                     *tempkeys))
                         con.insert('ac_level1b',temp)
@@ -163,7 +163,7 @@ def intensity_calibrate(listofspec,con,calstw,version,soda):
                     'spectype'        :s.type,
                     'intmode'         :spec.intmode,
                     'soda'            :soda,
-                    'spectra'         :con.escape_bytea(spec.data.tostring()),
+                    'spectra'         :spec.data.tostring(),
                     'channels'        :len(spec.data),
                     'skyfreq'         :s.skyfreq,
                     'lofreq'          :s.lofreq,
@@ -174,26 +174,26 @@ def intensity_calibrate(listofspec,con,calstw,version,soda):
                     'sbpath'          :s.sbpath,
                     'tspill'          :Tspill,
                     }
-        
+
                         tempkeys=[
                                 temp['stw'],temp['backend'],
                                 temp['frontend'],temp['version'],
                                 temp['spectype'],temp['intmode'],
                                 temp['soda'],temp['sourcemode'],
                                 temp['freqmode']]
-                        con.query('''delete from ac_cal_level1b 
+                        con.query('''delete from ac_cal_level1b
                      where stw={0} and backend='{1}' and frontend='{2}'
                      and version={3} and spectype='{4}' and intmode={5}
-                     and soda={6} and sourcemode='{7}' 
+                     and soda={6} and sourcemode='{7}'
                      and freqmode={8}'''.format(*tempkeys))
                         con.insert('ac_cal_level1b',temp)
-                   
- 
+
+
 
 def report_result(con,acfile,info):
     '''report result to the database processing related tables'''
     temp=[acfile,info['version']]
-    con.query('''delete from in_process 
+    con.query('''delete from in_process
                  where file='{0}' and version={1} '''.format(*temp))
     if info['info']=='pg problem':
         return
@@ -203,13 +203,13 @@ def report_result(con,acfile,info):
                  'total_scans':info['total_scans'],
                  'success_scans':info['success_scans'],
                  'version':info['version']}
-    con.query('''delete from processed 
+    con.query('''delete from processed
                      where file='{0}' and version={1} '''.format(*temp))
     con.insert('processed',processtemp)
 
 
 def level1b_importer():
-    '''perform an intensity and frequency calibration'''  
+    '''perform an intensity and frequency calibration'''
     #acfile='100b8721.ac1'
     #backend='AC1'
     #level0_process=1
@@ -227,7 +227,7 @@ def level1b_importer():
     con=db()
 
     p=Prepare_data(acfile,backend,version,con)
-    
+
     #find out max and min stw from acfile to calibrate
     stw1,stw2=p.get_stw_from_acfile()
     if stw1==-1:
@@ -237,10 +237,10 @@ def level1b_importer():
               'version': version}
         report_result(con,acfile,info)
 	logger.warning('no imported level0 ac data found for processing file {0}'.format(acfile))
-        return   
+        return
 
     #find out which sodaversion we have for this data
-    sodaversion=p.get_soda_version(stw1,stw2) 
+    sodaversion=p.get_soda_version(stw1,stw2)
     if sodaversion==-1:
         info={'info': 'no attitude data',
               'total_scans': 0,
@@ -279,10 +279,10 @@ def level1b_importer():
               'total_scans': 0,
               'success_scans': 0,
               'version': version}
-       report_result(con,acfile,info)	
+       report_result(con,acfile,info)
        return
 
-    
+
     #find out which scan that starts in the file to calibrate
     scanstarts=p.get_scan_starts(stw1,stw2)
     if scanstarts==[]:
@@ -305,8 +305,8 @@ def level1b_importer():
               'version': version}
         report_result(con,acfile,info)
         return
-    
-    #now loop over the scans 
+
+    #now loop over the scans
     success_scans=0
     for row in scanstarts:
         #find out which frontend(s) we have in the scan
@@ -332,7 +332,7 @@ def level1b_importer():
             if listofspec==[]:
                 continue
             intensity_calibrate(listofspec,con,row['start'],
-                                version,sodaversion) 
+                                version,sodaversion)
         success_scans=success_scans+1
 
     info={'info':'',

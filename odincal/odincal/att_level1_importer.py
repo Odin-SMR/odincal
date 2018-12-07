@@ -54,16 +54,12 @@ def att_level1_importer(stwa, stwb, soda, backend):
                 # extract database data
                 JD = djl(row['year'], row['mon'], row['day'],
                          row['hour'], row['min'], row['secs'])
-                qt = eval(row['qt'].replace('{', '(').replace('}', ')'))
-                qa = eval(row['qa'].replace('{', '(').replace('}', ')'))
-                qe = eval(row['qe'].replace('{', '(').replace('}', ')'))
-                gps = eval(row['gps'].replace('{', '(').replace('}', ')'))
                 # fill up the lookup table with data
                 lookup[index, 0: 2] = numpy.array((JD, row['orbit']))
-                lookup[index, 2: 6] = numpy.array(qt)
-                lookup[index, 6:10] = numpy.array(qa)
-                lookup[index, 10:13] = numpy.array(qe)
-                lookup[index, 13:19] = numpy.array(gps)
+                lookup[index, 2: 6] = numpy.array(row['qt'])
+                lookup[index, 6:10] = numpy.array(row['qa'])
+                lookup[index, 10:13] = numpy.array(row['qe'])
+                lookup[index, 13:19] = numpy.array(row['gps'])
                 lookup[index, 19] = row['acs']
             # search for the index with the lowest stw
             # above the desired stw in the lookup table
