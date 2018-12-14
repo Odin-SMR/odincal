@@ -1,4 +1,3 @@
-# pylint: skip-file
 from pg import ProgrammingError
 from odincal.database import ConfiguredDatabase
 

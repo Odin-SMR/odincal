@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #
 #       copy of aeronomy.py adapted to use with filterbank
-#       creates batchfile that calls fba.py 
+#       creates batchfile that calls fba.py
 #
 #       Glenn Persson, Aug. 2008
 #
@@ -18,16 +18,18 @@ import odinpath
 import pg
 import os
 
+
 def HDFname(orbit):
     bcode = 'D'
     ocode = "%04X" % (orbit)
-    hdffile = "O"+bcode+"1B"+ocode
+    hdffile = "O" + bcode + "1B" + ocode
     return hdffile
+
 
 if len(sys.argv) < 3:
     print "usage: %s first last" % (sys.argv[0])
 else:
-    db = pg.connect('smr','localhost',user='smr')
+    db = pg.connect('smr', 'localhost', user='smr')
     query = "SELECT orbit FROM orbittbl"
     query = query + "\n\tWHERE discipline = 'AERO'"
     query = query + "\n\tAND orbit >= %d" % (string.atoi(sys.argv[1]))
@@ -46,8 +48,8 @@ else:
         print "rm -f /tmp/hdffiles"
         dir = odinpath.aeropath(orbit, backend, single=0)
         file = HDFname(orbit)
-        hdfname = os.path.join(dir,file+".HDF.gz")
-        logname = os.path.join(dir,file+".LOG")
+        hdfname = os.path.join(dir, file + ".HDF.gz")
+        logname = os.path.join(dir, file + ".LOG")
         print "python fba.py %d" % (orbit)
         print "python aero_1b_logA.py %d FBA" % (orbit)
         print "if [ -r /tmp/hdffiles ]"

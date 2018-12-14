@@ -1,4 +1,3 @@
-# pylint: skip-file
 from oops import odin
 import numpy
 import psycopg2

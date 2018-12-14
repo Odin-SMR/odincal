@@ -1,4 +1,3 @@
-# pylint: disable=R0912,R0913
 from sys import argv
 from odincal.ac_level1a_importer import ac_level1a_importer
 from odincal.att_level1_importer import att_level1_importer
@@ -14,6 +13,7 @@ SUN1 = 0x0008
 
 class PrepareData(object):
     '''prepare level0 database data for calibration'''
+
     def __init__(self, acfile, backend, version, con):
         self.acfile = acfile
         self.backend = backend

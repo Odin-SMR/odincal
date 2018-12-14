@@ -23,6 +23,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 class EventHandler(ProcessEvent):
     """Event handler"""
+
     def __init__(self, queue):
         self.logger = logging.getLogger('filesystem list')
         self.logger.debug('started filesystem sensor')
@@ -55,6 +56,7 @@ class EventHandler(ProcessEvent):
 class Importer(object):
     """ Responsible for pulling the queue and run the import command
     """
+
     def __init__(self, queue, session):
         self.queue = queue
         self.session = session
@@ -76,7 +78,7 @@ class Importer(object):
     def import_files(self):
         """ Import all files in the queue
         """
-        while 1:
+        while True:
             try:
                 newfile = self.queue.get()
                 self.import_to_database(newfile)
@@ -117,6 +119,7 @@ def main():
     importer.import_files()
     session.close()
     notifier.stop()
+
 
 if __name__ == '__main__':
     main()

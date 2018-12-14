@@ -1,11 +1,11 @@
 #!/usr/bin/python
 #
-#       autoprocess.py 
+#       autoprocess.py
 #
 #       Purpose: Automatic processing of aeronomy data from level0 to level1b
 #                for version 7.0 calibration
 #                Should be scheduled by cron at regular intervals
-#               
+#
 #
 #       Glenn Persson, original version: 2007-05-31
 
@@ -24,20 +24,21 @@ import sys
 import time
 from time import localtime, strftime
 
-v7_path  = "/home/smr/v7.0/"
-genpath  = "/home/smr/autoprocess/"
+v7_path = "/home/smr/v7.0/"
+genpath = "/home/smr/autoprocess/"
 logfile = v7_path + "autoprocess.log"
 parfile = v7_path + "autolastorbit"
 genfile = genpath + "autoparam.log"
 
 # --------------------------------------------------------------------------
-#       log schedule time 
+#       log schedule time
 # --------------------------------------------------------------------------
 
-logging = open(logfile,'a+')
-while 1:
-   line = logging.readline()
-   if not line: break
+logging = open(logfile, 'a+')
+while True:
+    line = logging.readline()
+    if not line:
+        break
 timebuf = strftime("%a, %d %b %Y %H:%M:%S\n", localtime())
 buf = "\nscheduled at " + timebuf
 logging.write(buf)
@@ -46,12 +47,12 @@ logging.write(buf)
 #       check first if there are orbits to process
 # --------------------------------------------------------------------------
 
-file = open(parfile,'r')
+file = open(parfile, 'r')
 for line in file:
-   lastorbit = string.strip(line)
+    lastorbit = string.strip(line)
 file.close()
 
-file = open(genfile,'r')
+file = open(genfile, 'r')
 params = file.readlines()
 for line in params:
     line = string.strip(line)
@@ -63,8 +64,9 @@ for line in params:
         orbit = int(line[4:])
 file.close()
 
-if int(lastorbit) >= orbit-1:
-    buf = " Highest orbitnumber in db: " + str(orbit) + " Last processed: " + lastorbit
+if int(lastorbit) >= orbit - 1:
+    buf = " Highest orbitnumber in db: " + \
+        str(orbit) + " Last processed: " + lastorbit
     logging.write(buf)
     logging.write("\n")
     logging.close()
@@ -74,18 +76,18 @@ if int(lastorbit) >= orbit-1:
 #       OK, orbits to process. Retrieve ticket to pdc
 # --------------------------------------------------------------------------
 
-cmd="/home/smr/.pdcticket > /dev/null"
+cmd = "/home/smr/.pdcticket > /dev/null"
 os.system(cmd)
 
 # --------------------------------------------------------------------------
 #       prepare and run batch-file
 # --------------------------------------------------------------------------
 
-first = int(lastorbit)+1
-last = orbit-1
+first = int(lastorbit) + 1
+last = orbit - 1
 new_orbits = last - first + 1
 
-cmd = " python aeronomy.py " +str(first)+ " " +str(last)+ " > autobatch"
+cmd = " python aeronomy.py " + str(first) + " " + str(last) + " > autobatch"
 os.system(cmd)
 logging.write(cmd)
 logging.write("\n")
@@ -98,7 +100,7 @@ cmd = " bash autobatch"
 os.system(cmd)
 
 # --------------------------------------------------------------------------
-#       send me mail message 
+#       send me mail message
 # --------------------------------------------------------------------------
 
 cmd = " mail -s 'autoprocessing v7.0 done' glenn.persson@chalmers.se"
@@ -117,8 +119,8 @@ logging.write("\n")
 #       update last processed orbit
 # --------------------------------------------------------------------------
 
-file = open(parfile,'w')
-BUF = str(orbit-1) + '\n'
+file = open(parfile, 'w')
+BUF = str(orbit - 1) + '\n'
 file.write(BUF)
 file.close()
 

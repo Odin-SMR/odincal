@@ -12,7 +12,7 @@ import string
 files = sys.stdin.readlines()
 olddir = ""
 if len(files) > 0:
-    output = open("/tmp/hdfscript","w")
+    output = open("/tmp/hdfscript", "w")
 
     output.write('#!/usr/bin/expect --\n')
     output.write('set timeout -1\n')
@@ -31,34 +31,38 @@ if len(files) > 0:
         local = file[:-1]
         path = os.path.split(local)
         file = path[-1]
-        if   file[1] == 'A': backend = "AOS"
-        elif file[1] == 'B': backend = "AC1"
-        elif file[1] == 'C': backend = "AC2"
-        elif file[1] == 'D': backend = "FBA"
-        remotedir = string.join((backend,file[4:6]),'/')
-        if olddir <> remotedir:
+        if file[1] == 'A':
+            backend = "AOS"
+        elif file[1] == 'B':
+            backend = "AC1"
+        elif file[1] == 'C':
+            backend = "AC2"
+        elif file[1] == 'D':
+            backend = "FBA"
+        remotedir = string.join((backend, file[4:6]), '/')
+        if olddir != remotedir:
             cmd = "mkdir %s" % (remotedir)
             cmd = 'send "' + cmd + '\\r"'
-            output.write(cmd+'\n')
+            output.write(cmd + '\n')
             output.write('expect "ftp>"\n')
             cmd = "chmod 755 %s" % (remotedir)
             cmd = 'send "' + cmd + '\\r"'
-            output.write(cmd+'\n')
+            output.write(cmd + '\n')
             output.write('expect "ftp>"\n')
             olddir = remotedir
-            
-        remote = '7.0/' + string.join((backend,file[4:6],file),'/')
+
+        remote = '7.0/' + string.join((backend, file[4:6], file), '/')
 
         cmd = "put %s %s" % (local, remote)
         cmd = 'send "' + cmd + '\\r"'
-        output.write(cmd+'\n')
+        output.write(cmd + '\n')
         output.write('expect "ftp>"\n')
 
         cmd = "chmod 644 %s" % (remote)
         cmd = 'send "' + cmd + '\\r"'
-        output.write(cmd+'\n')
+        output.write(cmd + '\n')
         output.write('expect "ftp>"\n')
-    
+
     output.write('send "quit\\r"\n')
     output.write('expect "Goodbye"\n')
     output.write('close\n')

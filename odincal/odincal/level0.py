@@ -1,4 +1,3 @@
-# pylint: skip-file
 from oops.level0 import ACfile, FBAfile, SHKfile, HKdata
 from oops import attitude
 
@@ -256,7 +255,7 @@ def getATT(file):
                 'soda': int(ap.soda),
             }
             datalist.append(datadict)
-        except:
+        except BaseException:
             pass
     return datalist
 
