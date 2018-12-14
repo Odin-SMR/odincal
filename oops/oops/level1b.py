@@ -7,9 +7,11 @@ import string
 import odin
 from process import SourceProcessor
 
+
 def usage():
     print "%s <source name>.py [backends ...]" % (sys.argv[0])
     sys.exit(0)
+
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
@@ -17,7 +19,7 @@ if __name__ == "__main__":
 
     execfile(sys.argv[1])
     if len(sys.argv) == 2:
-        backends = ('AC1','AC2','AOS')
+        backends = ('AC1', 'AC2', 'AOS')
     else:
         backends = (sys.argv[2:])
 
@@ -27,7 +29,7 @@ if __name__ == "__main__":
     for backend in backends:
         for run in runs:
             orbits = run[0]
-            on     = run[1]
+            on = run[1]
             print "orbits:      ", orbits
             print "coordinates: ", on
             if mode == 'TPW':
@@ -36,7 +38,7 @@ if __name__ == "__main__":
 
             sp = SourceProcessor(source, topic, orbits, backend)
             dir = sp.setupDir()
-            odin.LogAs("astro", os.path.join(dir,backend + ".log"))
+            odin.LogAs("astro", os.path.join(dir, backend + ".log"))
             sp.findSource()
 
             odin.Info("check for bad REF and CAL spectra")

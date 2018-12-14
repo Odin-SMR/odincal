@@ -1,4 +1,3 @@
-# pylint: disable=C0103,R0914
 import copy
 import numpy
 
@@ -147,7 +146,7 @@ def cleancal(cal, ref):
     (_, cmat, _, _) = matrix(cal)
     nc = cmat.shape[0]
     if cal[0].backend == 'AOS':
-        mc = numpy.add.reduce(cmat, 1)/cmat.shape[1]
+        mc = numpy.add.reduce(cmat, 1) / cmat.shape[1]
     else:
         n = 112
         bands = len(cal[0].data) / n
@@ -161,7 +160,7 @@ def cleancal(cal, ref):
             else:
                 mc = mc - numpy.add.reduce(mc) / float(nc)
                 rms[band] = numpy.sqrt(
-                    numpy.add.reduce(mc * mc)/(float(nc - 1)))
+                    numpy.add.reduce(mc * mc) / (float(nc - 1)))
             print "rms of band", band, " =", rms[band]
         i = numpy.argsort(numpy.where(rms == 0.0, max(rms), rms))
         i0 = i[0] * n
@@ -272,7 +271,7 @@ def get_frequency(spec):
             if seq[2 * adc + 1] < 0:
                 df = -df
             for j in range(k):
-                f[m+j] = spec.ssb_fq[adc / 2] * 1e6 + j * df
+                f[m + j] = spec.ssb_fq[adc / 2] * 1e6 + j * df
             m += k
     fdata = numpy.zeros(shape=(n,))
     if spec.skyfreq >= spec.lofreq:

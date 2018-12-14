@@ -8,6 +8,7 @@ import logging
 
 class ShellLauncher(object):  # pylint: disable=too-few-public-methods
     """A Launcher that runs at local host"""
+
     def submit(self, *args, **kwargs):  # pylint: disable=no-self-use
         """submitfunction
         """
@@ -23,7 +24,7 @@ class ShellLauncher(object):  # pylint: disable=too-few-public-methods
             out = file(
                 '{2}/{1}_{0}.ou'.format(os.getpid(), name, outfile), 'w')
             python = subprocess.Popen(
-                'python '+args[0], shell=True, stdout=out, stderr=err
+                'python ' + args[0], shell=True, stdout=out, stderr=err
             )
             python.wait()
             err.close()
@@ -53,6 +54,7 @@ def main():
             Error_Path='./',
             Output_Path='./',
         )
+
 
 if __name__ == '__main__':
     main()

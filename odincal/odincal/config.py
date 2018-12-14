@@ -9,4 +9,3 @@ config.read([
     expanduser('~/.odincal.cfg'),
     expanduser('~/.odincal.secret')
 ])
-

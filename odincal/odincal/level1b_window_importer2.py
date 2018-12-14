@@ -1,4 +1,3 @@
-# pylint: disable=R0913,R0914,W1202
 from sys import argv
 import datetime
 import copy

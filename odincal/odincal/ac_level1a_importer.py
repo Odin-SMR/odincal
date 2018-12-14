@@ -1,4 +1,3 @@
-# pylint: skip-file
 import numpy
 from math import pi, sqrt, exp, cos
 from odincal.database import ConfiguredDatabase

@@ -1,14 +1,14 @@
-# pylint: disable=W0123,R0902
 import numpy
 
 
 class Spectra(object):
     """A class derived to perform frequency calibration of odin spectra"""
+
     def __init__(self, con, data, ref):
         self.ref = ref
         self.start = data['start']
         self.data = numpy.ndarray(
-            shape=(112*8,),
+            shape=(112 * 8,),
             dtype='float64',
             buffer=data['spectra']
         )

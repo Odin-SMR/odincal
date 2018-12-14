@@ -21,7 +21,7 @@ class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
         followed by the LogRecord in pickle format. Logs the record
         according to whatever policy is configured locally.
         """
-        while 1:
+        while True:
             chunk = self.connection.recv(4)
             if len(chunk) < 4:
                 break
@@ -50,6 +50,7 @@ class LogRecordStreamHandler(SocketServer.StreamRequestHandler):
         # cycles and network bandwidth!
         logger.handle(record)
 
+
 class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
     """simple TCP socket-based logging receiver suitable for testing.
     """
@@ -75,35 +76,39 @@ class LogRecordSocketReceiver(SocketServer.ThreadingTCPServer):
                 self.handle_request()
             abort = self.abort
 
+
 def main():
     parser = ConfigParser.SafeConfigParser({
-        #default values if no configfiles exists
-        'logserver_port':'9020',
-        'logserver_file':os.path.expanduser('~/.odin/systemlog'),
-        'logserver_backupcount':'20',
+        # default values if no configfiles exists
+        'logserver_port': '9020',
+        'logserver_file': os.path.expanduser('~/.odin/systemlog'),
+        'logserver_backupcount': '20',
     })
     parser.add_section('logserver')
     config_files = parser.read([
-        pkg_resources.resource_filename("odincal","logserver_defaults.cfg"),
+        pkg_resources.resource_filename("odincal", "logserver_defaults.cfg"),
         os.path.expanduser('~/.odin/odincal.cfg'),
         os.path.expanduser('~/.odin/logserver.cfg'),
     ])
     logger = logging.getLogger()
     fh = logging.handlers.RotatingFileHandler(
-        parser.get('logserver','logserver_file'),
+        parser.get('logserver', 'logserver_file'),
         mode='a',
         maxBytes=2**20,
-        backupCount=parser.getint('logserver','logserver_backupcount'),
+        backupCount=parser.getint('logserver', 'logserver_backupcount'),
         encoding=None,
         delay=0
     )
     formatter = logging.Formatter(
-            fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            datefmt='%y-%m-%dZ%H:%M:%S')
+        fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt='%y-%m-%dZ%H:%M:%S')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
-    tcpserver = LogRecordSocketReceiver(port=parser.getint('logserver','logserver_port'))
+    tcpserver = LogRecordSocketReceiver(
+        port=parser.getint(
+            'logserver', 'logserver_port'))
     tcpserver.serve_until_stopped()
+
 
 if __name__ == "__main__":
     main()

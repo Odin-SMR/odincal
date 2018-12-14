@@ -12,6 +12,7 @@ class OdincalDB(object):  # pylint: disable=too-few-public-methods
 
 class ConfiguredDatabase(DB):  # pylint: disable=too-few-public-methods
     """the odincal database"""
+
     def __init__(self):
         DB.__init__(
             self,
