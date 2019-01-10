@@ -5,7 +5,7 @@ node() {
     try {
         stage('build') {
             checkout scm
-            odincalImage = docker.build("docker2.molflow.com/rerun/odincal:${env.BUILD_TAG}")
+            odincalImage = docker.build("docker2.molflow.com/odin_redo/odincal:${env.BUILD_TAG}")
         }
         stage('test OOPS') {
             odincalImage.inside{
