@@ -1,6 +1,6 @@
 """ imports or calibrates files """
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from os.path import join, basename
 from time import sleep
 from logging import getLogger
@@ -189,14 +189,14 @@ def main():  # noqa pylint: disable=too-many-locals, too-many-branches, too-many
              where measurement_date>='{0}' and
              measurement_date<='{1}' group by ext'''.format(*level0_period))
                 result = query.dictresult()
-                time0 = datetime(2100, 1, 1)
+                time0 = date(2100, 1, 1)
                 att_data = 0
                 shk_data = 0
                 fba_data = 0
                 for row in result:
                     if row['ext'] == 'ac1' or row['ext'] == 'ac2':
                         continue
-                    time1 = datetime.strptime(row['max'], '%Y-%m-%d')
+                    time1 = row['max']
                     if time1 < time0:
                         time0 = time1
                     if row['ext'] == 'att':
@@ -209,7 +209,7 @@ def main():  # noqa pylint: disable=too-many-locals, too-many-branches, too-many
                     # the latest date we have attitude,shk,and fba data
                     # is t1, now subtract 2 days for safety reason
                     time0 = time0 - timedelta(days=2)
-                    ac_period[1] = str(time0.date())
+                    ac_period[1] = str(time0)
                 else:
                     # continue to next period
                     continue
