@@ -38,8 +38,3 @@ or using a database client directly, the password is "secret"
 == Developers
 
 There are a limited set of unittests that can be run using tox.
-
-For arcanist users:
-
-  arc lint
-  arc unit

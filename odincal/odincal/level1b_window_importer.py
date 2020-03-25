@@ -1,3 +1,4 @@
+import os
 import numpy
 import copy
 import datetime
@@ -16,12 +17,13 @@ from odincal.logclient import set_odin_logging
 
 class db(DB):
     def __init__(self):
+        passwd = os.getenv('ODINDB_PASSWD')
         DB.__init__(
             self,
             dbname='odin',
             user='odinop',
-            host='malachite',
-            passwd='0d!n-cth')
+            host='malachite.rss.chalmers.se',
+            passwd=passwd)
         # DB.__init__(self,dbname='odin_test')
 
 
