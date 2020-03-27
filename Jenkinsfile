@@ -2,7 +2,7 @@ node() {
     def odincalImage
     stage('build') {
         checkout scm
-        odincalImage = docker.build("docker2.molflow.com/odin_redo/odincal:${env.BUILD_TAG}")
+        odincalImage = docker.build("odinsmr/odincal:${env.BUILD_TAG}")
     }
     stage('test OOPS') {
         odincalImage.inside{
@@ -14,10 +14,12 @@ node() {
             sh "tox -c odincal/tox.ini"
         }
     }
-    if (env.GITREF == 'master') {
+    if (env.BRANCH_NAME == 'master') {
         stage('push') {
-            odincalImage.push()
-            odincalImage.push('latest')
+            withDockerRegistry([ credentialsId: "dockerhub-molflowbot", url: "" ]) {
+                odincalImage.push()
+                odincalImage.push('latest')
+            }
         }
     }
 }
