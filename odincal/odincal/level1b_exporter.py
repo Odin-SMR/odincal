@@ -9,12 +9,13 @@ import string
 
 class db(DB):
     def __init__(self):
+        passwd = os.getenv('ODINDB_PASSWD')
         DB.__init__(
             self,
             dbname='odin',
             user='odinop',
             host='malachite.rss.chalmers.se',
-            passwd='***REMOVED***')
+            passwd=passwd)
 
 
 def HDFname(backend, orbit):

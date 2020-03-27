@@ -856,7 +856,7 @@ following way
 >>javaaddpath('/home/odinop/odincal_tmp/test/postgresql-9.2-1002.jdbc4.jar')
 
 %open a connection to the database
->>conn = database('odin','odinop','***REMOVED***','Vendor',...
+>>conn = database('odin','odinop','secret','Vendor',...
                 'PostGreSQL','Server','malachite'); 
 
 %export data from table ac_level0 for a given stw
@@ -889,12 +889,13 @@ found within the tables can be handled.
 A python script analogous to the matlab example is given below: 
 
 \begin{verbatim}
+import os
 import numpy
 from pg import DB
 class db(DB):
     def __init__(self):
         DB.__init__(self,dbname='odin',user='odinop',
-                         host='malachite',passwd='***REMOVED***')
+                         host='malachite',passwd=os.getenv('ODINDB_PASSWD'))
 
 #open a connection to the database
 con=db()
@@ -1555,7 +1556,7 @@ config=configuration1
 host=malachite
 dbname=odin
 user=odinop
-passwd=***REMOVED***
+passwd=secret
 pgstring=host=%(host)s user=%(user)s password=%(passwd)s dbname=%(dbname)s
 [configuration1]
 period_start= '2013-04-01','2009-05-01'

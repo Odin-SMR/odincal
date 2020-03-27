@@ -104,7 +104,8 @@ javaaddpath('/home/odinop/odincal_tmp/test/postgresql-9.2-1002.jdbc4.jar')
 
 
 %open a connection to the odin database
-conn = database('odin','odinop','***REMOVED***','Vendor',...
+passwd = getenv('ODINDB_PASSWD')
+conn = database('odin','odinop',passwd,'Vendor',...
 		'PostGreSQL','Server','malachite'); 
 
 %get min and max stw from all scans that start in the orbit

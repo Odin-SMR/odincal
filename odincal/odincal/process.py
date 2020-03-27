@@ -1,15 +1,17 @@
-from pg import DB
+import os
 from subprocess import call
+from pg import DB
 
 
 class db(DB):
     def __init__(self):
+        passwd = os.getenv('ODINDB_PASSWD')
         DB.__init__(
             self,
             dbname='odin',
             user='odinop',
             host='malachite',
-            passwd='***REMOVED***')
+            passwd=passwd)
         # DB.__init__(self,dbname='odin_test')
 
 

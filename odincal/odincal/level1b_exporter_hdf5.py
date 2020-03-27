@@ -1,5 +1,6 @@
 import numpy
 import copy
+import os
 from pg import DB
 from sys import stderr, stdout, stdin, argv, exit
 import h5py
@@ -7,13 +8,13 @@ import h5py
 
 class db(DB):
     def __init__(self):
-        # DB.__init__(self,dbname='odin_test')
+        passwd = os.getenv('ODINDB_PASSWD')
         DB.__init__(
             self,
             dbname='odin',
             user='odinop',
             host='malachite.rss.chalmers.se',
-            passwd='***REMOVED***')
+            passwd=passwd)
 
 
 class Spectrum():
