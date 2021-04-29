@@ -6,6 +6,9 @@ from sqlalchemy import func, Column, String, Date, DateTime
 from odincal.database import OdincalDB
 
 
+STW_ODIN_REBOOT = 3 * 2 ** 32
+
+
 class Level0File(OdincalDB.Base):
     """A class to register level0-files"""
     __tablename__ = 'level0_files'
@@ -24,15 +27,18 @@ class Level0File(OdincalDB.Base):
     def timestamp_from_filename(self):
         """ return datetime from filename """
         stw = int(self.name + '0', base=16)
-        # reference stw and mjd
-        stw0 = 6161431982
-        mjd0 = 56416.7782534
-        rate = 1 / 16.0016444
-        # calculate mjd for the filename stw
-        mjd = mjd0 + (stw - stw0) * rate / 86400.0
-        # get a time stamp
-        timestamp = datetime.date(datetime(1858, 11, 17) + timedelta(days=mjd))
-        return timestamp
+        if stw >= STW_ODIN_REBOOT:
+            a = 4.99205631 * 1e4
+            b = 7.23413455 * 1e-7
+            c = -4.25743315 * 1e-21
+            d = 0.
+        else:
+            a = 5.19601792 * 1e4
+            b = 7.23308989 * 1e-7
+            c = -6.81289563 * 1e-22
+            d = 2.47714080 * 1e-32
+        mjd = (a + b * stw + c * stw ** 2 + d * stw ** 3)
+        return datetime.date(datetime(1858, 11, 17) + timedelta(days=mjd))
 
     def check_file_type(self):
         """ import one file """
