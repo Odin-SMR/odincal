@@ -85,7 +85,7 @@ class Spectra(object):
                 else:
                     if_freq = if_freq * 3.6 / 3.9
 
-        if self.current < 0.25 and self.frontend != '572':
+        if self.current < 0.19 and self.frontend != '572':
             self.lofreq = 0.0
 
         self.fcalibrate(self.lofreq, if_freq)

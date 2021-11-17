@@ -11,6 +11,8 @@ def calibrate(spectra, calstw, version):
         return None, version, None
 
     cals = cleancal(cals, refs)
+    if len(cals) == 0:
+        return None, version, None
 
     print 'skyfreq: {0} GHz'.format(refs[0].skyfreq / 1e9)
     medtsys = get_medtsys(cals)
@@ -151,41 +153,24 @@ def cleancal(cal, ref):
         n = 112
         bands = len(cal[0].data) / n
         rms = numpy.zeros(shape=(bands,))
+        idx = []
         for band in range(bands):
             i0 = band * n
             i1 = i0 + n
-            mc = numpy.add.reduce(cmat[:, i0:i1], 1) / float(n)
-            if len(numpy.nonzero(mc)[0]) < nc or nc < 2:
+            mc = numpy.mean(cmat[:, i0:i1], 1)
+            if numpy.sum((mc != 0.0).astype(int)) < nc or nc < 2:
                 rms[band] = 1.0e10
             else:
-                mc = mc - numpy.add.reduce(mc) / float(nc)
-                rms[band] = numpy.sqrt(
-                    numpy.add.reduce(mc * mc) / (float(nc - 1)))
-            print "rms of band", band, " =", rms[band]
-        i = numpy.argsort(numpy.where(rms == 0.0, max(rms), rms))
-        i0 = i[0] * n
-        i1 = i0 + n
-        mc = numpy.add.reduce(cmat, 1) / cmat.shape[1]
-    # to start with, disgard any Tsys spectra which are clearly
-    # too high
-    mc0 = numpy.take(mc, numpy.nonzero(numpy.less(mc, tmax)))[0]
-    mc0 = numpy.take(mc0, numpy.nonzero(numpy.greater(mc0, tmin)))[0]
-    n1 = len(mc0)
-    if n1 == 0:
-        tsys = 0.0
-        cal = []
-    else:
-        tsys = numpy.sort(mc0)[n1 / 2]
-        print "mean Tsys", tsys
-        for i in range(nc - 1, -1, -1):
-            if (mc[i] < tmin or mc[i] > tmax or
-                    abs((mc[i] - tsys) / tsys) > 0.02):
-                pass
-            if (mc[i] < tmin or mc[i] > tmax):
-                del cal[i]
-
-    del mc
-    return cal
+                diff = mc - numpy.mean(mc)
+                rms[band] = numpy.sqrt(numpy.sum(diff ** 2) / float(nc - 1))
+            if rms[band] != 0.0 and rms[band] != 1.0e10:
+                idx.append(numpy.arange(i0, i1))
+            print "rms of band {0} = {1}".format(band, rms[band])
+        valid_channels = numpy.array(idx).flatten()
+        if valid_channels.size == 0:
+            return []
+        mc = numpy.mean(cmat[:, valid_channels], 1)
+    return [cali for cali, mci in zip(cal, mc) if mci >= tmin and mci <= tmax]
 
 
 def ssbcurve(spec):
