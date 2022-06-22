@@ -24,8 +24,8 @@ def ext_module():
 
 setup(
     name='oops',
-    setup_requires=['numpy==1.15.4'],
-    install_requires=['numpy==1.15.4'],
+    setup_requires=['numpy==1.22.0'],
+    install_requires=['numpy==1.22.0'],
     version='1.1.1',
     description="Python interface to the Odin C-library",
     packages=find_packages(),
