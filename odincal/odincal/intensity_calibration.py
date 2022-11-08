@@ -67,6 +67,8 @@ def calibrate(spectra, calstw, version):
                 ((spec.data - tspill) / eta, 0.0)
             )
             spec.efftime = spec.inttime * eff * eta**2
+            if spec.efftime > numpy.finfo('float32').max:
+                spec.efftime = float('inf')
 
     return calibrated, version, tspill
 
