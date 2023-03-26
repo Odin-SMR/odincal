@@ -1,9 +1,7 @@
-coverage
-numpy
+attrs
 matplotlib
+numpy==1.15.4
 psycopg2-binary
 PyGreSQL
 pyinotify
 SQLAlchemy
-attrs==19.1.0
-tox

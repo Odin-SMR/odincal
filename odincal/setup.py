@@ -38,7 +38,7 @@ setup(
     author_email='joakim.moller@molflow.com',
     url='http://www.molflow.com/odincal',
     install_requires=[
-        'numpy==1.15.4',
+        'numpy',
         'matplotlib',
         'PyGreSQL',
         'setuptools',

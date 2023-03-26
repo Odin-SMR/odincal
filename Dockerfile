@@ -1,8 +1,5 @@
-FROM ubuntu:18.04
-COPY requirements.apt /src/
+FROM python:2.7
 WORKDIR /src
-RUN set -x && \
-    apt-get update && xargs apt-get install -y < requirements.apt
 COPY requirements.txt /src
 RUN pip install -r requirements.txt 
 COPY ./oops /src/oops
